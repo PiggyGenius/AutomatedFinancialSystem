@@ -1,0 +1,3500 @@
+import java.sql.*;
+
+public class Access  {
+    private Connection conn=null;
+    private Statement stmt=null;
+
+    public Access(){
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            String DB_URL="jdbc:mysql://dwarves.iut-fbleau.fr/carre";
+            String USER="carre";
+            String PASSWORD="carre";
+            conn=DriverManager.getConnection(DB_URL,USER,PASSWORD);
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            System.exit(1);
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            System.exit(1);
+        }
+    }
+
+    public Statement getStatement(){
+        try {
+            this.stmt=conn.createStatement();
+        } catch(SQLException e){
+            System.out.println(e.getMessage());
+            System.exit(1);
+        }
+        return this.stmt;
+    }
+
+    public void closeConnection(){
+        try {
+            this.stmt.close();
+            this.conn.close();
+        } catch(SQLException e){
+            System.out.println(e.getMessage());
+        }
+    }
+}
+import javax.swing.*;
+import java.lang.Thread;
+
+public class CashThread extends Thread {
+    private JLabel cash_label;
+    private int client_id;
+
+    public CashThread(JLabel cash_label,int client_id){
+        this.cash_label=cash_label;
+        this.client_id=client_id;
+    }
+
+    @Override
+    public void run(){
+        double value;
+        for(;;){
+            this.cash_label.setText(String.format("%.2f",DataAccess.getCashFlow(client_id)));
+            try {
+                Thread.sleep(6000);
+            } catch(InterruptedException e){
+            }
+        }
+    }
+}
+import javax.swing.*;
+import java.lang.Thread;
+import java.awt.*;
+
+public class ClientTransactionThread extends Thread {
+    private JPanel data_panel;
+    private String[][][] list;
+    private int client_id;
+
+    public ClientTransactionThread(String[][][] list,JPanel data_panel,int client_id){
+        this.list = list;
+        this.data_panel = data_panel;
+        this.client_id = client_id;
+    }
+
+    @Override
+    public void run(){
+        double value;
+        JLabel data;
+        Color window_color = new Color(33,36,38);
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,15);
+        String[][][] last_list;
+        for(;;){
+            last_list = DataAccess.getPortfolioTransactionsOfClient(this.client_id);
+            if(this.list[0][0][0]=="0" || last_list[0][0][0]=="0")
+                ;
+            else if(this.list[0][0][0]=="-1" || last_list[0][0][0]=="-1"){
+                data = new JLabel("Connection to database lost.");
+                data.setFont(label_font);
+                data.setBackground(window_color);
+                data.setForeground(Color.WHITE);
+                this.data_panel.add(data);
+            }
+            else {
+                for(int x=0;x<last_list.length;x++){
+                    for(int y=this.list[x].length;y<last_list[x].length;y++){
+                        if(x==0){
+                            data = new JLabel(last_list[x][y][0]+" "+last_list[x][y][2]+" "+last_list[x][y][1]+" stock for "+String.format("%.2f",Double.valueOf(last_list[x][y][3]))+"$. Actual Price was : "+String.format("%.2f",Double.valueOf(last_list[x][y][4]))+" per stock.");
+                            data.setFont(label_font);
+                            data.setBackground(window_color);
+                            data.setForeground(Color.WHITE);
+                            this.data_panel.add(data);
+                        }
+                        if(x==1){
+                            data = new JLabel(last_list[x][y][0]+" "+last_list[x][y][3]+" "+last_list[x][y][1]+" warrant of "+last_list[x][y][2]+" for "+String.format("%.2f",Double.valueOf(last_list[x][y][4]))+"$ exercise price is : "+String.format("%.2f",Double.valueOf(last_list[x][y][5]))+".");
+                            data.setFont(label_font);
+                            data.setBackground(window_color);
+                            data.setForeground(Color.WHITE);
+                            this.data_panel.add(data);
+                    }
+                        if(x==2){
+                            data = new JLabel(last_list[x][y][0]+" "+last_list[x][y][3]+" "+last_list[x][y][1]+" tracker of "+last_list[x][y][2]+" for "+String.format("%.2f",Double.valueOf(last_list[x][y][4]))+"$ exercise price is : "+last_list[x][y][5]+".");
+                            data.setFont(label_font);
+                            data.setBackground(window_color);
+                            data.setForeground(Color.WHITE);
+                            this.data_panel.add(data);
+                        }
+                    }
+                }
+                this.list=last_list;
+            }
+            this.data_panel.revalidate();
+            this.data_panel.repaint();
+            try {
+                Thread.sleep(3000);
+            } catch(InterruptedException e){
+            }
+        }
+    }
+}
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
+import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
+
+/**
+ *  The ComponentResizer allows you to resize a component by dragging a border
+ *  of the component.
+ */
+public class ComponentResizer extends MouseAdapter
+{
+	private final static Dimension MINIMUM_SIZE = new Dimension(10, 10);
+	private final static Dimension MAXIMUM_SIZE =
+		new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE);
+
+	private static Map<Integer, Integer> cursors = new HashMap<Integer, Integer>();
+	{
+		cursors.put(1, Cursor.N_RESIZE_CURSOR);
+		cursors.put(2, Cursor.W_RESIZE_CURSOR);
+		cursors.put(4, Cursor.S_RESIZE_CURSOR);
+		cursors.put(8, Cursor.E_RESIZE_CURSOR);
+		cursors.put(3, Cursor.NW_RESIZE_CURSOR);
+		cursors.put(9, Cursor.NE_RESIZE_CURSOR);
+		cursors.put(6, Cursor.SW_RESIZE_CURSOR);
+		cursors.put(12, Cursor.SE_RESIZE_CURSOR);
+	}
+
+	private Insets dragInsets;
+	private Dimension snapSize;
+
+	private int direction;
+	protected static final int NORTH = 1;
+	protected static final int WEST = 2;
+	protected static final int SOUTH = 4;
+	protected static final int EAST = 8;
+
+	private Cursor sourceCursor;
+	private boolean resizing;
+	private Rectangle bounds;
+	private Point pressed;
+	private boolean autoscrolls;
+
+	private Dimension minimumSize = MINIMUM_SIZE;
+	private Dimension maximumSize = MAXIMUM_SIZE;
+
+	/**
+	 *  Convenience contructor. All borders are resizable in increments of
+	 *  a single pixel. Components must be registered separately.
+	 */
+	public ComponentResizer()
+	{
+		this(new Insets(5, 5, 5, 5), new Dimension(1, 1));
+	}
+
+	/**
+	 *  Convenience contructor. All borders are resizable in increments of
+	 *  a single pixel. Components can be registered when the class is created
+	 *  or they can be registered separately afterwards.
+	 *
+	 *  @param components components to be automatically registered
+	 */
+	public ComponentResizer(Component... components)
+	{
+		this(new Insets(5, 5, 5, 5), new Dimension(1, 1), components);
+	}
+
+	/**
+	 *  Convenience contructor. Eligible borders are resisable in increments of
+	 *  a single pixel. Components can be registered when the class is created
+	 *  or they can be registered separately afterwards.
+	 *
+	 *  @param dragInsets Insets specifying which borders are eligible to be
+	 *                    resized.
+	 *  @param components components to be automatically registered
+	 */
+	public ComponentResizer(Insets dragInsets, Component... components)
+	{
+		this(dragInsets, new Dimension(1, 1), components);
+	}
+
+	/**
+	 *  Create a ComponentResizer.
+	 *
+	 *  @param dragInsets Insets specifying which borders are eligible to be
+	 *                    resized.
+	 *  @param snapSize Specify the dimension to which the border will snap to
+	 *                  when being dragged. Snapping occurs at the halfway mark.
+	 *  @param components components to be automatically registered
+	 */
+	public ComponentResizer(Insets dragInsets, Dimension snapSize, Component... components)
+	{
+		setDragInsets( dragInsets );
+		setSnapSize( snapSize );
+		registerComponent( components );
+	}
+
+	/**
+	 *  Get the drag insets
+	 *
+	 *  @return  the drag insets
+	 */
+	public Insets getDragInsets()
+	{
+		return dragInsets;
+	}
+
+	/**
+	 *  Set the drag dragInsets. The insets specify an area where mouseDragged
+	 *  events are recognized from the edge of the border inwards. A value of
+	 *  0 for any size will imply that the border is not resizable. Otherwise
+	 *  the appropriate drag cursor will appear when the mouse is inside the
+	 *  resizable border area.
+	 *
+	 *  @param  dragInsets Insets to control which borders are resizeable.
+	 */
+	public void setDragInsets(Insets dragInsets)
+	{
+		validateMinimumAndInsets(minimumSize, dragInsets);
+
+		this.dragInsets = dragInsets;
+	}
+
+	/**
+	 *  Get the components maximum size.
+	 *
+	 *  @return the maximum size
+	 */
+	public Dimension getMaximumSize()
+	{
+		return maximumSize;
+	}
+
+	/**
+	 *  Specify the maximum size for the component. The component will still
+	 *  be constrained by the size of its parent.
+	 *
+	 *  @param maximumSize the maximum size for a component.
+	 */
+	public void setMaximumSize(Dimension maximumSize)
+	{
+		this.maximumSize = maximumSize;
+	}
+
+	/**
+	 *  Get the components minimum size.
+	 *
+	 *  @return the minimum size
+	 */
+	public Dimension getMinimumSize()
+	{
+		return minimumSize;
+	}
+
+	/**
+	 *  Specify the minimum size for the component. The minimum size is
+	 *  constrained by the drag insets.
+	 *
+	 *  @param minimumSize the minimum size for a component.
+	 */
+	public void setMinimumSize(Dimension minimumSize)
+	{
+		validateMinimumAndInsets(minimumSize, dragInsets);
+
+		this.minimumSize = minimumSize;
+	}
+
+	/**
+	 *  Remove listeners from the specified component
+	 *
+	 *  @param component  the component the listeners are removed from
+	 */
+	public void deregisterComponent(Component... components)
+	{
+		for (Component component : components)
+		{
+			component.removeMouseListener( this );
+			component.removeMouseMotionListener( this );
+		}
+	}
+
+	/**
+	 *  Add the required listeners to the specified component
+	 *
+	 *  @param component  the component the listeners are added to
+	 */
+	public void registerComponent(Component... components)
+	{
+		for (Component component : components)
+		{
+			component.addMouseListener( this );
+			component.addMouseMotionListener( this );
+		}
+	}
+
+	/**
+	 *	Get the snap size.
+	 *
+	 *  @return the snap size.
+	 */
+	public Dimension getSnapSize()
+	{
+		return snapSize;
+	}
+
+	/**
+	 *  Control how many pixels a border must be dragged before the size of
+	 *  the component is changed. The border will snap to the size once
+	 *  dragging has passed the halfway mark.
+	 *
+	 *  @param snapSize Dimension object allows you to separately spcify a
+	 *                  horizontal and vertical snap size.
+	 */
+	public void setSnapSize(Dimension snapSize)
+	{
+		this.snapSize = snapSize;
+	}
+
+	/**
+	 *  When the components minimum size is less than the drag insets then
+	 *	we can't determine which border should be resized so we need to
+	 *  prevent this from happening.
+	 */
+	private void validateMinimumAndInsets(Dimension minimum, Insets drag)
+	{
+		int minimumWidth = drag.left + drag.right;
+		int minimumHeight = drag.top + drag.bottom;
+
+		if (minimum.width  < minimumWidth
+		||  minimum.height < minimumHeight)
+		{
+			String message = "Minimum size cannot be less than drag insets";
+			throw new IllegalArgumentException( message );
+		}
+	}
+
+	/**
+	 */
+	@Override
+	public void mouseMoved(MouseEvent e)
+	{
+		Component source = e.getComponent();
+		Point location = e.getPoint();
+		direction = 0;
+
+		if (location.x < dragInsets.left)
+			direction += WEST;
+
+		if (location.x > source.getWidth() - dragInsets.right - 1)
+			direction += EAST;
+
+		if (location.y < dragInsets.top)
+			direction += NORTH;
+
+		if (location.y > source.getHeight() - dragInsets.bottom - 1)
+			direction += SOUTH;
+
+		//  Mouse is no longer over a resizable border
+
+		if (direction == 0)
+		{
+			source.setCursor( sourceCursor );
+		}
+		else  // use the appropriate resizable cursor
+		{
+			int cursorType = cursors.get( direction );
+			Cursor cursor = Cursor.getPredefinedCursor( cursorType );
+			source.setCursor( cursor );
+		}
+	}
+
+	@Override
+	public void mouseEntered(MouseEvent e)
+	{
+		if (! resizing)
+		{
+			Component source = e.getComponent();
+			sourceCursor = source.getCursor();
+		}
+	}
+
+	@Override
+	public void mouseExited(MouseEvent e)
+	{
+		if (! resizing)
+		{
+			Component source = e.getComponent();
+			source.setCursor( sourceCursor );
+		}
+	}
+
+	@Override
+	public void mousePressed(MouseEvent e)
+	{
+		//	The mouseMoved event continually updates this variable
+
+		if (direction == 0) return;
+
+		//  Setup for resizing. All future dragging calculations are done based
+		//  on the original bounds of the component and mouse pressed location.
+
+		resizing = true;
+
+		Component source = e.getComponent();
+		pressed = e.getPoint();
+		SwingUtilities.convertPointToScreen(pressed, source);
+		bounds = source.getBounds();
+
+		//  Making sure autoscrolls is false will allow for smoother resizing
+		//  of components
+
+		if (source instanceof JComponent)
+		{
+			JComponent jc = (JComponent)source;
+			autoscrolls = jc.getAutoscrolls();
+			jc.setAutoscrolls( false );
+		}
+	}
+
+	/**
+	 *  Restore the original state of the Component
+	 */
+	@Override
+	public void mouseReleased(MouseEvent e)
+	{
+		resizing = false;
+
+		Component source = e.getComponent();
+		source.setCursor( sourceCursor );
+
+		if (source instanceof JComponent)
+		{
+			((JComponent)source).setAutoscrolls( autoscrolls );
+		}
+	}
+
+	/**
+	 *  Resize the component ensuring location and size is within the bounds
+	 *  of the parent container and that the size is within the minimum and
+	 *  maximum constraints.
+	 *
+	 *  All calculations are done using the bounds of the component when the
+	 *  resizing started.
+	 */
+	@Override
+	public void mouseDragged(MouseEvent e)
+	{
+		if (resizing == false) return;
+
+		Component source = e.getComponent();
+		Point dragged = e.getPoint();
+		SwingUtilities.convertPointToScreen(dragged, source);
+
+		changeBounds(source, direction, bounds, pressed, dragged);
+	}
+
+	protected void changeBounds(Component source, int direction, Rectangle bounds, Point pressed, Point current)
+	{
+		//  Start with original locaton and size
+
+		int x = bounds.x;
+		int y = bounds.y;
+		int width = bounds.width;
+		int height = bounds.height;
+
+		//  Resizing the West or North border affects the size and location
+
+		if (WEST == (direction & WEST))
+		{
+			int drag = getDragDistance(pressed.x, current.x, snapSize.width);
+			int maximum = Math.min(width + x, maximumSize.width);
+			drag = getDragBounded(drag, snapSize.width, width, minimumSize.width, maximum);
+
+			x -= drag;
+			width += drag;
+		}
+
+		if (NORTH == (direction & NORTH))
+		{
+			int drag = getDragDistance(pressed.y, current.y, snapSize.height);
+			int maximum = Math.min(height + y, maximumSize.height);
+			drag = getDragBounded(drag, snapSize.height, height, minimumSize.height, maximum);
+
+			y -= drag;
+			height += drag;
+		}
+
+		//  Resizing the East or South border only affects the size
+
+		if (EAST == (direction & EAST))
+		{
+			int drag = getDragDistance(current.x, pressed.x, snapSize.width);
+			Dimension boundingSize = getBoundingSize( source );
+			int maximum = Math.min(boundingSize.width - x, maximumSize.width);
+			drag = getDragBounded(drag, snapSize.width, width, minimumSize.width, maximum);
+			width += drag;
+		}
+
+		if (SOUTH == (direction & SOUTH))
+		{
+			int drag = getDragDistance(current.y, pressed.y, snapSize.height);
+			Dimension boundingSize = getBoundingSize( source );
+			int maximum = Math.min(boundingSize.height - y, maximumSize.height);
+			drag = getDragBounded(drag, snapSize.height, height, minimumSize.height, maximum);
+			height += drag;
+		}
+
+		source.setBounds(x, y, width, height);
+		source.validate();
+	}
+
+	/*
+	 *  Determine how far the mouse has moved from where dragging started
+	 */
+	private int getDragDistance(int larger, int smaller, int snapSize)
+	{
+		int halfway = snapSize / 2;
+		int drag = larger - smaller;
+		drag += (drag < 0) ? -halfway : halfway;
+		drag = (drag / snapSize) * snapSize;
+
+		return drag;
+	}
+
+	/*
+	 *  Adjust the drag value to be within the minimum and maximum range.
+	 */
+	private int getDragBounded(int drag, int snapSize, int dimension, int minimum, int maximum)
+	{
+		while (dimension + drag < minimum)
+			drag += snapSize;
+
+		while (dimension + drag > maximum)
+			drag -= snapSize;
+
+
+		return drag;
+	}
+
+	/*
+	 *  Keep the size of the component within the bounds of its parent.
+	 */
+	private Dimension getBoundingSize(Component source)
+	{
+		if (source instanceof Window)
+		{
+			GraphicsEnvironment env = GraphicsEnvironment.getLocalGraphicsEnvironment();
+			Rectangle bounds = env.getMaximumWindowBounds();
+			return new Dimension(bounds.width, bounds.height);
+		}
+		else
+		{
+			return source.getParent().getSize();
+		}
+	}
+}
+import java.awt.event.*;
+import javax.swing.*;
+import java.awt.*;
+
+public class ConnectionListener implements ActionListener {
+    private JTextField email;
+    private JTextField password;
+    private DataAccess data_model;
+    private JLabel error_message;
+    private static ConnectionPage connection_page;
+    private static TitleScreen title_screen;
+    private static PilotingScreen piloting_screen;
+    private static LowTitleScreen low_title_screen;
+
+    public ConnectionListener(JTextField email, JTextField password, JLabel error_message, ConnectionPage connection_page){
+        this.email = email;
+        this.password = password;
+        this.data_model = new DataAccess();
+        this.error_message = error_message;
+        this.connection_page = connection_page;
+    }
+    @Override
+    public void actionPerformed(ActionEvent e){
+        this.error_message.setText("");
+        String str_email = String.format(this.email.getText());
+        String str_password = String.format(this.password.getText());
+        int conditioner = DataAccess.clientAuthentification(str_email,str_password);
+        if(conditioner == 1){
+            Container window = this.connection_page.getParent();
+            window.remove(connection_page);
+        
+            this.title_screen = new TitleScreen(str_email,this.connection_page);
+            PilotingController piloting_controller = new PilotingController(this.data_model,title_screen,str_email);
+            this.piloting_screen = new PilotingScreen(piloting_controller,str_email,window);
+            window.setLayout(new BorderLayout());
+            window.add(title_screen, BorderLayout.NORTH);
+            window.add(piloting_screen, BorderLayout.CENTER);
+            this.low_title_screen = new LowTitleScreen(DataAccess.getIdOfClient(str_email));
+            window.add(this.low_title_screen, BorderLayout.SOUTH);
+            window.validate();
+            window.repaint();
+        }
+        else if(conditioner == 0){
+            this.error_message.setText("Authentification Failure.");
+        }
+        else if(conditioner == -1){
+            this.error_message.setText("Could not reach server.");
+        } 
+    }
+    public static ConnectionPage getConnectionPage(){
+        return connection_page;
+    }
+    public static JPanel[] getPilotingPanels(){
+        JPanel[] panels = new JPanel[3];
+        panels[0]=title_screen;
+        panels[1]=piloting_screen;
+        panels[2]=low_title_screen;
+        return panels;
+    }
+}
+import javax.swing.*;
+import java.awt.event.*;
+import java.awt.*;
+
+public class ConnectionPage extends JPanel {
+    private JTextField email;
+    private JPasswordField password;
+    private JButton sign_in;
+
+    public ConnectionPage(int width){
+        //Color bckg_color = new Color(50,46,46);
+        //this.setBackground(bckg_color);
+        Font text_font = new Font(Font.SANS_SERIF,Font.BOLD,25);
+        JLabel error_message = new JLabel("");
+        error_message.setForeground(Color.RED);
+
+        this.email = new HintTextField("Email",width);
+        this.email.setFont(text_font);
+        //this.email.setBackground(bckg_color);
+        //this.email.setForeground(Color.WHITE);
+
+        this.password = new HintPasswordField("Password",width);
+        this.password.setFont(text_font);
+        //this.password.setBackground(bckg_color);
+        //this.password.setForeground(Color.WHITE);
+
+        this.sign_in = new JButton("Sign in");
+        this.sign_in.setFont(text_font);
+        this.sign_in.setMaximumSize(new Dimension(Integer.MAX_VALUE, this.sign_in.getMinimumSize().height));
+
+        //this.sign_in.setBackground(bckg_color);
+        //this.sign_in.setForeground(Color.WHITE);
+
+        ConnectionListener controller = new ConnectionListener(this.email,this.password,error_message,this);
+        this.sign_in.addActionListener(controller);
+        this.email.addActionListener(controller);
+        this.password.addActionListener(controller);
+
+
+        JPanel components = new JPanel();
+        BoxLayout layout = new BoxLayout(components, BoxLayout.Y_AXIS);
+        components.setLayout(layout);
+
+        components.add(this.email);
+        components.add(this.password);
+        components.add(this.sign_in);
+        components.add(error_message);
+
+        this.add(components);
+    }
+} 
+import java.sql.*;
+
+public class DataAccess {
+    private Access connection;
+    private static Statement stmt;
+
+    public DataAccess(){
+        this.connection = new Access();
+        this.stmt = this.connection.getStatement();
+    }
+    public static int clientAuthentification(String email, String password){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM Client WHERE emailAddress=\""+email+"\" AND password=\""+password+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 1)
+                return 1;
+            else 
+                return 0;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            return -1;
+        }
+    }
+
+    public static double getSellingValue(int client_id){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM ClientData WHERE clientId=\""+client_id+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result = rs.getInt(1);
+            double value;
+            rs.close();
+            if(result == 1){
+                query = "SELECT sellingValue FROM ClientData WHERE clientId=\""+client_id+"\";";
+                rs = stmt.executeQuery(query);
+                rs.first();
+                value = rs.getDouble(1);
+                rs.close();
+                return value;
+            }
+            else 
+                return -1;
+        } catch(SQLException se){
+            System.out.println(se.getMessage()+" Selling value");
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage()+" Selling value");
+            return -1;
+        }
+    }
+
+    public static double getCashFlow(int client_id){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM ClientData WHERE clientId=\""+client_id+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result = rs.getInt(1);
+            double value;
+            rs.close();
+            if(result == 1){
+                query = "SELECT cashFlow FROM ClientData WHERE clientId=\""+client_id+"\";";
+                rs = stmt.executeQuery(query);
+                rs.first();
+                value = rs.getDouble(1);
+                rs.close();
+                return value;
+            }
+            else 
+                return -1;
+        } catch(SQLException se){
+            System.out.println(se.getMessage()+" cashflow");
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage()+" cash_flow");
+            return -1;
+        }
+    }
+
+    public static double getInvestMoney(int client_id){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM ClientData WHERE clientId=\""+client_id+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result = rs.getInt(1);
+            double value;
+            rs.close();
+            if(result == 1){
+                query = "SELECT investMoney FROM ClientData WHERE clientId=\""+client_id+"\";";
+                rs = stmt.executeQuery(query);
+                rs.first();
+                value = rs.getDouble(1);
+                rs.close();
+                return value;
+            }
+            else 
+                return -1;
+        } catch(SQLException se){
+            System.out.println(se.getMessage()+" invest money");
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage()+" invest money");
+            return -1;
+        }
+    }
+
+    public static boolean setClientData(int clientId,float[] answers, boolean decision,float risk_rate){
+        try {
+            stmt.executeUpdate("UPDATE ClientData SET investMoney="+answers[0]+",investRate="+answers[1]+",capitalAmount="+answers[2]+",netCapitalAmount="+answers[3]+",debtAmount="+answers[4]+",safeIncome="+answers[5]+",limitedTime="+answers[6]+",wayOfLife="+decision+",riskRate="+risk_rate+";");
+            return true;
+        } catch(SQLException se){
+            return false;
+        } catch(Exception e){
+            return false;
+        }
+    }
+
+    public static int getIdOfClient(String email){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM Client WHERE emailAddress=\""+email+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result = rs.getInt(1);
+            rs.close();
+            if(result == 1){
+                query = "SELECT clientId FROM Client WHERE emailAddress=\""+email+"\";";
+                rs = stmt.executeQuery(query);
+                rs.first();
+                result = rs.getInt(1);
+                rs.close();
+                return result;
+            }
+            else 
+                return 0;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            return -1;
+        }
+    }
+
+    public String[][] getClientsInformation(){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(clientId) FROM Client;";
+            String query = "SELECT * FROM Client;";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+    public String[] getClientInformation(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(clientId) FROM Client WHERE clientId="+clientId+";";
+            String query = "SELECT * FROM Client WHERE clientId="+clientId+";";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[] result = new String[1];
+                result[0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[] result = new String[rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<rsmd.getColumnCount();i++){
+                result[i]=rs.getString(i+1);
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[] result = new String[1];
+            result[0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[] result = new String[1];
+            result[0]="-1";
+            return result;
+        }
+    }
+    public String[][] getGroupsInformation(){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(groupId) FROM Client;";
+            String query = "SELECT * FROM GROUP;";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+    public String[][] getTrackersOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(ISIN) FROM ClientTracker NATURAL JOIN Tracker WHERE clientId="+clientId+";";
+            String query = "SELECT name,quantity,buyingDate,buyingPrice,price FROM ClientWarrant NATURAL JOIN Warrant WHERE clientId="+clientId+";";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][] getPortfolioTrackersOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(transactionId) FROM ClientTracker WHERE clientId="+clientId+";";
+            String query = "SELECT type,SName,quantity,buyingPrice,exercicePrice FROM ClientTracker C, Stock S WHERE C.underlyingISIN=S.ISIN AND clientId="+clientId+";";
+            rs = stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+
+    public String[][] getWarrantsOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(ISIN) FROM ClientWarrant NATURAL JOIN Warrant WHERE clientId="+clientId+";";
+            String query = "SELECT name,quantity,buyingDate,buyingPrice,price FROM ClientWarrant NATURAL JOIN Warrant WHERE clientId="+clientId+";";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][] getPortfolioWarrantsOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(transactionId) FROM ClientWarrant WHERE clientId="+clientId+";";
+            String query = "SELECT type,SName,quantity,buyingPrice,exercisePrice FROM ClientWarrant C, Stock S WHERE C.underlyingISIN=S.ISIN AND clientId="+clientId+";";
+            rs = stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+
+    public String[][] getStocksOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(ISIN) FROM ClientStock NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            String query = "SELECT name,quantity,buyingDate,buyingPrice,price FROM ClientStock NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][] getPortfolioStocksOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(transactionId) FROM ClientStock WHERE clientId="+clientId+";";
+            String query = "SELECT SName,quantity,buyingPrice,SPrice FROM ClientStock NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            rs = stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][][] getTransactionsOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String stocks_query_test = "SELECT COUNT(transactionId) FROM ClientStocksTransaction NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            String warrants_query_test = "SELECT COUNT(transactionId) FROM ClientWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            String trackers_query_test = "SELECT COUNT(transactionId) FROM ClientTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE clientId="+clientId+";";
+
+
+            String stocks_query = "SELECT SName,operation,operationPrice,underlyingPrice,quantity,transactionTime FROM ClientStocksTransaction NATURAL JOIN Stock WHERE clientId="+clientId+" ORDER BY(transactionTime)";
+
+            String warrants_query = "SELECT WName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM ClientWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE clientId="+clientId+" ORDER BY(transactionTime)";
+
+            String trackers_query = "SELECT TName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM ClientTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE clientId="+clientId+" ORDER BY(transactionTime)";
+
+            rs = stmt.executeQuery(stocks_query_test);
+            rs.first();
+            int stocks_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(warrants_query_test);
+            rs.first();
+            int warrants_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(trackers_query_test);
+            rs.first();
+            int trackers_result_number = rs.getInt(1);
+            rs.close();
+
+            if(stocks_result_number==0 && warrants_result_number==0 && trackers_result_number==0){
+                String[][][] result = new String[1][1][1];
+                result[0][0][0]="0";
+                return result;
+            }
+
+            String[][][] result = new String[3][][];
+            ResultSetMetaData rsmd;
+            rs = null;
+            if(stocks_result_number!=0){
+                rs = stmt.executeQuery(stocks_query);
+                rsmd = rs.getMetaData();
+                result[0] = new String[stocks_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<stocks_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[0][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[0] = new String[1][1];
+                result[0][0][0]="0";
+            }
+
+
+            if(warrants_result_number!=0){
+                rs = stmt.executeQuery(warrants_query);
+                rsmd = rs.getMetaData();
+                result[1] = new String[warrants_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<warrants_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[1][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[1] = new String[1][1];
+                result[1][0][0]="0";
+            }
+
+
+            if(trackers_result_number!=0){
+                rs = stmt.executeQuery(trackers_query);
+                rsmd = rs.getMetaData();
+                result[2] = new String[trackers_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<trackers_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[2][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[2] = new String[1][1];
+                result[2][0][0]="0";
+            }
+
+
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][][] getTransactionsOfGroup(int groupId){
+        try {
+            ResultSet rs = null;
+            String stocks_query_test = "SELECT COUNT(transactionId) FROM GroupStocksTransaction NATURAL JOIN Stock WHERE groupId="+groupId+";";
+            String warrants_query_test = "SELECT COUNT(transactionId) FROM GroupWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE groupId="+groupId+";";
+            String trackers_query_test = "SELECT COUNT(transactionId) FROM GroupTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE groupId="+groupId+";";
+
+
+            String stocks_query = "SELECT SName,operation,operationPrice,underlyingPrice,quantity,transactionTime FROM GroupStocksTransaction NATURAL JOIN Stock WHERE groupId="+groupId+" ORDER BY(transactionTime)";
+
+            String warrants_query = "SELECT WName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM GroupWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE groupId="+groupId+" ORDER BY(transactionTime)";
+
+            String trackers_query = "SELECT TName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM GroupTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE groupId="+groupId+" ORDER BY(transactionTime)";
+
+            rs = stmt.executeQuery(stocks_query_test);
+            rs.first();
+            int stocks_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(warrants_query_test);
+            rs.first();
+            int warrants_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(trackers_query_test);
+            rs.first();
+            int trackers_result_number = rs.getInt(1);
+            rs.close();
+
+            if(stocks_result_number==0 && warrants_result_number==0 && trackers_result_number==0){
+                String[][][] result = new String[1][1][1];
+                result[0][0][0]="0";
+                return result;
+            }
+
+            String[][][] result = new String[3][][];
+            ResultSetMetaData rsmd;
+            rs = null;
+            if(stocks_result_number!=0){
+                rs = stmt.executeQuery(stocks_query);
+                rsmd = rs.getMetaData();
+                result[0] = new String[stocks_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<stocks_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[0][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[0] = new String[1][1];
+                result[0][0][0]="0";
+            }
+
+
+            if(warrants_result_number!=0){
+                rs = stmt.executeQuery(warrants_query);
+                rsmd = rs.getMetaData();
+                result[1] = new String[warrants_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<warrants_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[1][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[1] = new String[1][1];
+                result[1][0][0]="0";
+            }
+
+
+            if(trackers_result_number!=0){
+                rs = stmt.executeQuery(trackers_query);
+                rsmd = rs.getMetaData();
+                result[2] = new String[trackers_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<trackers_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[2][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[2] = new String[1][1];
+                result[2][0][0]="0";
+            }
+
+
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][][] getPortfolioTransactionsOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String stocks_query_test = "SELECT COUNT(transactionId) FROM ClientStock WHERE clientId="+clientId+";";
+            String warrants_query_test = "SELECT COUNT(transactionId) FROM ClientWarrant WHERE clientId="+clientId+";";
+            String trackers_query_test = "SELECT COUNT(transactionId) FROM ClientTracker WHERE clientId="+clientId+";";
+
+
+            String stocks_query = "SELECT operation,SName,quantity,operationPrice,underlyingPrice FROM ClientStock NATURAL JOIN Stock NATURAL JOIN ClientStocksTransaction WHERE clientId="+clientId+";";
+
+            String warrants_query = "SELECT operation,type,SName,W.quantity,buyingPrice,exercicePrice FROM ClientWarrantsTransaction W,ClientWarrant C,Stock S WHERE C.underlyingISIN=S.ISIN AND W.transactionId=C.transactionId AND C.clientId="+clientId+";";
+
+            String trackers_query = "SELECT operation,type,SName,T.quantity,buyingPrice,exercicePrice FROM ClientTrackersTransaction T,ClientTracker C,Stock S WHERE C.underlyingISIN=S.ISIN AND T.transactionId=C.transactionId AND C.clientId="+clientId+";";
+
+            rs = stmt.executeQuery(stocks_query_test);
+            rs.first();
+            int stocks_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(warrants_query_test);
+            rs.first();
+            int warrants_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(trackers_query_test);
+            rs.first();
+            int trackers_result_number = rs.getInt(1);
+            rs.close();
+
+            if(stocks_result_number==0 && warrants_result_number==0 && trackers_result_number==0){
+                String[][][] result = new String[1][1][1];
+                result[0][0][0]="0";
+                return result;
+            }
+
+            String[][][] result = new String[3][][];
+            ResultSetMetaData rsmd;
+            rs = null;
+            if(stocks_result_number!=0){
+                rs = stmt.executeQuery(stocks_query);
+                rsmd = rs.getMetaData();
+                result[0] = new String[stocks_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<stocks_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[0][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[0] = new String[1][1];
+                result[0][0][0]="0";
+            }
+
+
+            if(warrants_result_number!=0){
+                rs = stmt.executeQuery(warrants_query);
+                rsmd = rs.getMetaData();
+                result[1] = new String[warrants_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<warrants_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[1][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[1] = new String[1][1];
+                result[1][0][0]="0";
+            }
+
+
+            if(trackers_result_number!=0){
+                rs = stmt.executeQuery(trackers_query);
+                rsmd = rs.getMetaData();
+                result[2] = new String[trackers_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<trackers_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[2][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[2] = new String[1][1];
+                result[2][0][0]="0";
+            }
+
+
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        }
+    }
+}
+import javax.swing.*;
+import java.lang.Thread;
+
+public class FinancialThread extends Thread {
+    private JLabel financial_value;
+    private int client_id;
+
+    public FinancialThread(JLabel financial_value,int client_id){
+        this.financial_value=financial_value;
+        this.client_id=client_id;
+    }
+
+    @Override
+    public void run(){
+        String value;
+        for(;;){
+            value = String.format("%.2f",DataAccess.getSellingValue(client_id));
+            value = "  "+value+"  ";
+            this.financial_value.setText(value);
+            try {
+                Thread.sleep(5000);
+            } catch(InterruptedException e){
+            }
+        }
+    }
+}
+import java.awt.*;
+import javax.swing.*;
+import java.awt.event.*;
+
+public class GroupScreen extends JPanel {
+    public GroupScreen(){
+        this.add(new JButton("Group"));
+    }
+}
+import java.awt.*;
+import java.awt.image.*;
+import java.io.*;
+import java.util.logging.*;
+import javax.imageio.*;
+import javax.swing.*;
+import java.awt.event.*;
+
+public class HeaderHistoryScreen extends JPanel{
+    public HeaderHistoryScreen(String email, RefreshListener refresh_listener){
+        Color window_color = new Color(33,36,38);
+        Font text_font = new Font(Font.SANS_SERIF,Font.BOLD,20);
+
+        JLabel mail_label = new JLabel(email, JLabel.LEFT);
+
+        mail_label.setFont(text_font);
+        mail_label.setForeground(Color.WHITE);
+        mail_label.setVerticalAlignment(JLabel.NORTH);
+        mail_label.setHorizontalAlignment(JLabel.LEFT);
+
+
+        this.setBackground(window_color);
+        this.setForeground(Color.WHITE);
+
+        this.setLayout(new GridLayout(2,3));
+
+        JPanel left_panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        left_panel.setBackground(window_color);
+        left_panel.setForeground(Color.WHITE);
+        JButton return_button = new JButton("Return");
+        return_button.addActionListener(new ReturnController(this));
+        return_button.setBackground(window_color);
+        return_button.setForeground(Color.WHITE);
+        left_panel.add(return_button);
+
+        this.add(left_panel);
+        this.add(new JLabel(""));
+
+        JPanel refresh_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        refresh_panel.setBackground(window_color);
+        JButton refresh_button = new JButton("Refresh");
+        refresh_button.setBackground(window_color);
+        refresh_button.setForeground(Color.WHITE);
+        refresh_button.setVerticalAlignment(JButton.BOTTOM);
+        refresh_button.addActionListener(refresh_listener);
+        refresh_panel.add(refresh_button);
+        this.add(refresh_panel);
+        this.add(new JLabel(""));
+        this.add(new JLabel(""));
+        this.add(new JLabel(""));
+    }
+}
+import java.awt.*;
+import java.awt.image.*;
+import java.io.*;
+import java.util.logging.*;
+import javax.imageio.*;
+import javax.swing.*;
+import java.awt.event.*;
+
+public class HeaderScreen extends JPanel{
+    public HeaderScreen(String email){
+        Color window_color = new Color(33,36,38);
+        Font text_font = new Font(Font.SANS_SERIF,Font.BOLD,20);
+
+        JLabel mail_label = new JLabel(email, JLabel.LEFT);
+
+        mail_label.setFont(text_font);
+        mail_label.setForeground(Color.WHITE);
+        mail_label.setVerticalAlignment(JLabel.NORTH);
+        mail_label.setHorizontalAlignment(JLabel.LEFT);
+
+
+        JButton logout_button = new JButton("Logout");
+        logout_button.setBackground(window_color);
+        logout_button.setForeground(Color.WHITE);
+        logout_button.addActionListener(new LogoutListener(ConnectionListener.getConnectionPage(),this));
+
+        //logout_button.setFont(text_font);
+        logout_button.setVerticalAlignment(JButton.NORTH);
+        logout_button.setHorizontalAlignment(JButton.RIGHT);
+
+
+        JPanel button_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+        button_panel.setBackground(window_color);
+        button_panel.add(logout_button);
+
+        this.setBackground(window_color);
+        this.setForeground(Color.WHITE);
+
+        this.setLayout(new GridLayout(2,3));
+
+        JPanel left_panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        left_panel.setBackground(window_color);
+        left_panel.setForeground(Color.WHITE);
+        JButton return_button = new JButton("Return");
+        return_button.setBackground(window_color);
+        return_button.setForeground(Color.WHITE);
+        return_button.addActionListener(new ReturnController(this));
+        left_panel.add(return_button);
+        left_panel.add(mail_label);
+        this.add(left_panel);
+        this.add(new JLabel(""));
+        this.add(button_panel);
+
+        this.add(new JLabel(""));
+        this.add(new JLabel(""));
+        this.add(new JLabel(""));
+    }
+}
+import javax.swing.*;
+import java.awt.event.*;
+
+public class HintPasswordField extends JPasswordField implements FocusListener {
+    private String hint;
+    private boolean visible;
+
+    public HintPasswordField(String hint,int columns){
+        super(hint,columns);
+        this.hint = hint;
+        this.visible = true;
+        super.addFocusListener(this);
+        this.setEchoChar((char) 0);
+    }
+    @Override
+    public void focusGained(FocusEvent e){
+        if(this.getPassword().length == 0){
+            this.setEchoChar('*');
+            super.setText("");
+            this.visible = false;
+        }
+    }
+    @Override
+    public void focusLost(FocusEvent e){
+        if(this.getPassword().length == 0){
+            this.setEchoChar((char) 0);
+            super.setText(hint);
+            this.visible = true;
+        }
+    }
+    @Override
+    public char[] getPassword(){
+        char[] empty = new char[0];
+        if(this.visible){
+            return empty;
+        }
+        else {
+            return super.getPassword();
+        }
+    }
+}
+import javax.swing.*;
+import java.awt.event.*;
+
+public class HintTextField extends JTextField implements FocusListener {
+    private String hint;
+    private boolean visible;
+
+    public HintTextField(String hint,int columns){
+        super(hint,columns);
+        this.hint = hint;
+        this.visible = true;
+        super.addFocusListener(this);
+    }
+    @Override
+    public void focusGained(FocusEvent e){
+        if(this.getText().isEmpty()){
+            super.setText("");
+            this.visible = false;
+        }
+    }
+    @Override
+    public void focusLost(FocusEvent e){
+        if(this.getText().isEmpty()){
+            super.setText(hint);
+            this.visible = true;
+        }
+    }
+    @Override
+    public String getText(){
+        if(this.visible){
+            return "";
+        }
+        else {
+            return super.getText();
+        }
+    }
+}
+import java.awt.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import java.awt.event.*;
+import java.io.*;
+import java.util.*;
+
+public class HistoryScreen extends JTabbedPane {
+    private String[][][] client_list;
+    private String[][][] group_list;
+    private JLabel[][] stocks;
+    private JLabel error_label;
+    private JPanel client_stocks, client_warrants, client_trackers, group_stocks, group_warrants, group_trackers;
+    private GridBagLayout grid_bag;
+    private GridBagConstraints constraints;
+    private static JScrollPane[] scroll_bar;
+    private static int[] index;
+
+    public HistoryScreen(Container window){
+        Color window_color = new Color(33,36,38);
+        window.setBackground(window_color);
+        this.setBackground(window_color);
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,15);
+        Border border = BorderFactory.createLineBorder(Color.BLACK,2);
+
+
+        JTabbedPane client = new JTabbedPane();
+
+        //MOdification içi
+
+        this.grid_bag = new GridBagLayout();
+        this.constraints = new GridBagConstraints();
+        this.constraints.fill=GridBagConstraints.BOTH;
+        this.constraints.anchor=GridBagConstraints.CENTER;
+        this.constraints.weightx=1.0;
+        JLabel title;
+
+        String[] client_stocks_title = {"Company","Operation","Operation cost","Stock quote","Quantity","Time of transaction"};
+        this.client_stocks = new JPanel();
+        this.client_stocks.setLayout(this.grid_bag);
+        this.client_stocks.setBackground(window_color);
+        this.constraints.gridx=0;
+        this.constraints.gridy=0;
+        for(int i=0;i<6;i++){
+            this.constraints.gridx=i;
+            title = new JLabel(client_stocks_title[i], JLabel.CENTER);
+            title.setBackground(window_color);
+            title.setForeground(Color.WHITE);
+            title.setFont(label_font);
+            title.setBorder(border);
+            this.grid_bag.setConstraints(title,this.constraints);
+            this.client_stocks.add(title);
+        }
+
+
+
+        String[] client_warrants_title = {"Option ISIN","Company","Operation","Operation cost","Option price","Stock quote","Quantity","Time of transaction"};
+        this.client_warrants = new JPanel();
+        this.client_warrants.setLayout(this.grid_bag);
+        this.client_warrants.setBackground(window_color);
+        this.constraints.gridx=0;
+        this.constraints.gridy=0;
+        for(int i=0;i<8;i++){
+            this.constraints.gridx=i;
+            title = new JLabel(client_warrants_title[i], JLabel.CENTER);
+            title.setBackground(window_color);
+            title.setForeground(Color.WHITE);
+            title.setFont(label_font);
+            title.setBorder(border);
+            this.grid_bag.setConstraints(title,this.constraints);
+            this.client_warrants.add(title);
+        }
+
+
+        
+        String[] client_trackers_title = {"Option ISIN","Company","Operation","Operation cost","Option price","Stock quote","Quantity","Time of transaction"};
+        this.client_trackers = new JPanel();
+        this.client_trackers.setLayout(this.grid_bag);
+        this.client_trackers.setBackground(window_color);
+        this.constraints.gridx=0;
+        this.constraints.gridy=0;
+        for(int i=0;i<8;i++){
+            this.constraints.gridx=i;
+            title = new JLabel(client_trackers_title[i], JLabel.CENTER);
+            title.setBackground(window_color);
+            title.setForeground(Color.WHITE);
+            title.setFont(label_font);
+            title.setBorder(border);
+            this.grid_bag.setConstraints(title,this.constraints);
+            this.client_trackers.add(title);
+        }
+
+
+/*
+        client.addTab("Stocks",null,this.client_stocks,"See stocks transactions");
+        client.setMnemonicAt(0, KeyEvent.VK_1);
+        client.addTab("Warrants",null,this.client_warrants,"See warrants transactions");
+        client.setMnemonicAt(1, KeyEvent.VK_2);
+        client.addTab("Trackers",null,this.client_trackers,"See trackers transactions");
+        client.setMnemonicAt(2, KeyEvent.VK_3);
+*/
+
+
+        JTabbedPane group = new JTabbedPane();
+
+        this.group_stocks = new JPanel();
+        this.group_stocks.setLayout(this.grid_bag);
+        this.group_stocks.setBackground(window_color);
+
+        this.group_warrants = new JPanel();
+        this.group_warrants.setLayout(this.grid_bag);
+        this.group_warrants.setBackground(window_color);
+
+        this.group_trackers = new JPanel();
+        this.group_trackers.setLayout(this.grid_bag);
+        this.group_trackers.setBackground(window_color);
+
+
+/*
+        group.addTab("Stocks",null,this.group_stocks,"See stocks transactions");
+        group.setMnemonicAt(0, KeyEvent.VK_1);
+        group.addTab("Warrants",null,this.group_warrants,"See warrants transactions");
+        group.setMnemonicAt(1, KeyEvent.VK_2);
+        group.addTab("Trackers",null,this.group_trackers,"See trackers transactions");
+        group.setMnemonicAt(2, KeyEvent.VK_3);
+*/
+//
+        scroll_bar = new JScrollPane[6];
+        index = new int[6];
+        scroll_bar[0] = new JScrollPane(this.client_stocks);
+        scroll_bar[1] = new JScrollPane(this.client_warrants);
+        scroll_bar[2] = new JScrollPane(this.client_trackers);
+        scroll_bar[3] = new JScrollPane(this.group_stocks);
+        scroll_bar[4] = new JScrollPane(this.group_warrants);
+        scroll_bar[5] = new JScrollPane(this.group_trackers);
+
+
+       group.addTab("Stocks",null,scroll_bar[3],"See stocks transactions");
+        group.setMnemonicAt(0, KeyEvent.VK_1);
+        group.addTab("Warrants",null,scroll_bar[4],"See warrants transactions");
+        group.setMnemonicAt(1, KeyEvent.VK_2);
+        group.addTab("Trackers",null,scroll_bar[5],"See trackers transactions");
+        group.setMnemonicAt(2, KeyEvent.VK_3);
+
+
+
+        client.addTab("Stocks",null,scroll_bar[0],"See stocks transactions");
+        client.setMnemonicAt(0, KeyEvent.VK_1);
+        client.addTab("Warrants",null,scroll_bar[1],"See warrants transactions");
+        client.setMnemonicAt(1, KeyEvent.VK_2);
+        client.addTab("Trackers",null,scroll_bar[2],"See trackers transactions");
+        client.setMnemonicAt(2, KeyEvent.VK_3);
+
+
+//
+
+
+        this.addTab("Individual",null,client,"See client transactions");
+        this.setMnemonicAt(0, KeyEvent.VK_1);
+        this.addTab("Group",null,group,"See group transactions");
+        this.setMnemonicAt(1, KeyEvent.VK_2);
+    }
+
+    public void setClientList(String[][][] list){
+        this.client_list=list;
+        int begin=0;
+        JLabel data_label;
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,15);
+        for(int x=0;x<this.client_list.length;x++){
+            if(this.client_list[x][0][0].equals("0"))
+                begin=1;
+            for(int y=begin;y<this.client_list[x].length;y++){
+                this.constraints.gridy=y+1;
+                for(int z=0;z<this.client_list[x][y].length;z++){
+                    this.constraints.gridx=z;
+                    if(x==0){
+                        data_label = new JLabel(this.client_list[x][y][z], JLabel.CENTER);
+                        data_label.setForeground(Color.WHITE);
+                        data_label.setFont(label_font);
+                        this.grid_bag.setConstraints(data_label,this.constraints);
+                        this.client_stocks.add(data_label);
+                    }
+                    else if(x==1){
+                        data_label = new JLabel(this.client_list[x][y][z], JLabel.CENTER);
+                        data_label.setForeground(Color.WHITE);
+                        data_label.setFont(label_font);
+                        this.grid_bag.setConstraints(data_label,this.constraints);
+                        this.client_warrants.add(data_label);
+                    }
+                    else if(x==2){
+                        data_label = new JLabel(this.client_list[x][y][z], JLabel.CENTER);
+                        data_label.setForeground(Color.WHITE);
+                        data_label.setFont(label_font);
+                        this.grid_bag.setConstraints(data_label,this.constraints);
+                        this.client_trackers.add(data_label);
+                    }
+                }
+                begin=0;
+            }
+            index[x]=this.constraints.gridy;
+        }
+    }
+
+    public void setGroupList(String[][][] list){
+        this.group_list=list;
+        int begin=0;
+        JLabel data_label;
+
+        for(int x=0;x<this.group_list.length;x++){
+            if(this.group_list[x][0][0].equals("0"))
+                begin=1;
+            for(int y=begin;y<this.group_list[x].length;y++){
+                this.constraints.gridy=y;
+                for(int z=0;z<this.group_list[x][y].length;z++){
+                    this.constraints.gridx=z;
+                    if(x==0){
+                        data_label = new JLabel(this.group_list[x][y][z], JLabel.CENTER);
+                        data_label.setForeground(Color.WHITE);
+                        this.grid_bag.setConstraints(data_label,this.constraints);
+                        this.group_stocks.add(data_label);
+                    }
+                    else if(x==1){
+                        data_label = new JLabel(this.group_list[x][y][z], JLabel.CENTER);
+                        data_label.setForeground(Color.WHITE);
+                        this.grid_bag.setConstraints(data_label,this.constraints);
+                        this.group_warrants.add(data_label);
+                    }
+                    else if(x==2){
+                        data_label = new JLabel(this.group_list[x][y][z], JLabel.CENTER);
+                        data_label.setForeground(Color.WHITE);
+                        this.grid_bag.setConstraints(data_label,this.constraints);
+                        this.group_trackers.add(data_label);
+                    }
+                }
+                begin=0;
+            }
+            index[x+3]=this.constraints.gridy;
+        }
+    }
+
+    public void setErrorMessage(String message){
+        this.error_label.setText(message);
+        this.client_stocks.add(this.error_label);
+        this.client_warrants.add(this.error_label);
+        this.client_trackers.add(this.error_label);
+        this.group_stocks.add(this.error_label);
+        this.group_warrants.add(this.error_label);
+        this.group_trackers.add(this.error_label);
+    }
+
+    public static void setScrollPanes(int width,int height){
+        for(int i=0;i<6;i++){
+            if(index[i]>=20)
+                scroll_bar[i].setPreferredSize(new Dimension(width,height));
+        }
+    }
+}
+//package view;
+import java.awt.*;
+import javax.swing.*;
+
+
+
+public class IconButton extends JButton{
+	public IconButton(String who){
+    	ImageIcon default_icon = new ImageIcon(Toolkit.getDefaultToolkit().getImage("img/default_"+who+".png"));
+    	ImageIcon hover_icon = new ImageIcon(Toolkit.getDefaultToolkit().getImage("img/hover_"+who+".png"));
+    	ImageIcon pressed_icon = new ImageIcon(Toolkit.getDefaultToolkit().getImage("img/pressed_"+who+".png"));
+    	
+    	setIcon(default_icon);
+    	setRolloverIcon(hover_icon);
+    	setPressedIcon(pressed_icon);
+    	
+    	setCursor(new Cursor(Cursor.HAND_CURSOR));
+    	setContentAreaFilled(false);
+    	setBorder(BorderFactory.createEmptyBorder());
+    	setPreferredSize(new Dimension(default_icon.getIconWidth(), default_icon.getIconHeight()));
+	}
+}
+import java.lang.ProcessBuilder;
+import java.awt.*;
+import javax.swing.*;
+import java.awt.event.*;
+import java.io.IOException;
+
+public class LaunchController implements ActionListener {
+    private int launch;
+    private Process process;
+    private Color window_color;
+    private JButton button;
+
+    public LaunchController(JButton button){
+        this.button = button;
+        this.launch = 1;
+        this.window_color = new Color(33,36,38);
+    }
+    @Override
+    public void actionPerformed(ActionEvent e){
+        this.launch=(this.launch+1)%2;
+        if(launch==0){
+            try {
+                this.process = new ProcessBuilder("/home/piggygenius/Work/Project/Interface/testing/CountToInfinite.exe"/*,"useless_1","useless_2"*/).start();
+                this.button.setBackground(Color.GREEN);
+            } catch(IOException ex){
+                System.out.println("Cannot launch AFIS."+ex.getMessage());
+            }
+        }
+        else {
+            this.process.destroy();
+            this.button.setBackground(window_color);
+        }
+    }
+}
+import java.awt.event.*;
+import javax.swing.*;
+import java.awt.*;
+
+public class LogoutListener implements ActionListener {
+    private ConnectionPage connection_page;
+    private JPanel default_panel;
+
+    public LogoutListener(ConnectionPage connection_page, JPanel default_panel){
+        this.connection_page = connection_page;
+        this.default_panel = default_panel;
+    }
+    @Override
+    public void actionPerformed(ActionEvent e){
+        Container window = this.default_panel.getParent();
+        window.removeAll();
+        window.add(this.connection_page);
+        window.validate();
+        window.repaint();
+    }
+}
+import java.awt.*;
+import java.awt.image.*;
+import java.io.*;
+import java.util.logging.*;
+import javax.imageio.*;
+import javax.swing.*;
+import java.awt.event.*;
+
+public class LowTitleScreen extends JPanel{
+    public LowTitleScreen(int client_id){
+        Color window_color = new Color(33,36,38);
+        Font text_font = new Font(Font.SANS_SERIF,Font.PLAIN,20);
+        this.setBackground(window_color);
+        this.setForeground(Color.WHITE);
+        this.setLayout(new GridLayout(2,3));
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,25);
+
+        JPanel financial_panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        financial_panel.setBackground(window_color);
+        JLabel financial_wealth = new JLabel("Financial wealth : ");
+        JLabel financial_value = new JLabel(Double.toString(DataAccess.getSellingValue(client_id)));
+        financial_panel.add(financial_wealth);
+        financial_panel.add(financial_value);
+
+        JPanel invested_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        invested_panel.setBackground(window_color);
+        JLabel invested_money = new JLabel("Invested money : ");
+        JLabel invested_value = new JLabel(Double.toString(DataAccess.getInvestMoney(client_id)));
+        invested_panel.add(invested_money);
+        invested_panel.add(invested_value);
+
+        financial_wealth.setForeground(Color.WHITE);
+        financial_value.setForeground(Color.WHITE);
+        invested_money.setForeground(Color.WHITE);
+        invested_value.setForeground(Color.WHITE);
+
+        financial_wealth.setFont(label_font);
+        financial_value.setFont(label_font);
+        invested_money.setFont(label_font);
+        invested_value.setFont(label_font);
+
+        MoneyThread money_thread = new MoneyThread(financial_value,invested_value,client_id);
+        money_thread.start();
+
+
+        JLabel useless_one = new JLabel("");
+        useless_one.setFont(label_font);
+
+        JLabel useless_two = new JLabel("");
+        useless_two.setFont(label_font);
+
+        JLabel useless_three = new JLabel("");
+        useless_three.setFont(label_font);
+
+        this.add(useless_one);
+        this.add(useless_two);
+        this.add(useless_three);
+
+        this.add(financial_panel);
+        this.add(new JLabel(""));
+        this.add(invested_panel);
+    }
+}
+public class Main {
+    public static void main(String[] args){
+        DataAccess model = new DataAccess();
+        String[][] test = model.getClientsInformation();
+        String[] testou = model.getClientInformation(1);
+        for(int i=0;i<test.length;i++){
+            for(int j=0;j<test[i].length;j++){
+                System.out.print(test[i][j]+" ");
+            }
+            System.out.println();
+        }
+        test = model.getStocksOfClient(1);
+        for(int i=0;i<test.length;i++){
+            for(int j=0;j<test[i].length;j++){
+                System.out.print(test[i][j]+" ");
+            }
+            System.out.println();
+        }
+        for(int i=0;i<test.length;i++){
+            System.out.print(testou[i]+" ");
+        }
+        System.out.println();
+    }
+}
+//package controller;
+import java.awt.Frame;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+//import view.*;
+
+
+
+public class MenuListener implements ActionListener{
+	private String who;
+	
+	public MenuListener(String w){
+		who = w;
+	}
+	
+	@Override public void actionPerformed(ActionEvent arg0) {
+		if(who.equals("close"))
+			close();
+		else if(who.equals("minimize"))
+			minimize();
+	}
+	
+	private void close(){
+		Start.get().dispose();
+		System.exit(0);
+	}
+	
+	private void minimize(){
+		Start.get().setState(Frame.ICONIFIED);
+	}
+}
+import javax.swing.*;
+import java.lang.Thread;
+
+public class MoneyThread extends Thread {
+    private JLabel invested_money;
+    private JLabel financial_value;
+    private int client_id;
+
+    public MoneyThread(JLabel financial_value,JLabel invested_money,int client_id){
+        this.financial_value=financial_value;
+        this.invested_money=invested_money;
+        this.client_id=client_id;
+    }
+
+    @Override
+    public void run(){
+        for(;;){
+            this.financial_value.setText(String.format("%.2f",DataAccess.getSellingValue(client_id)));
+            this.invested_money.setText(String.format("%.2f",DataAccess.getInvestMoney(client_id)));
+            try {
+                Thread.sleep(5000);
+            } catch(InterruptedException e){
+            }
+        }
+    }
+}
+import java.awt.event.*;
+import javax.swing.*;
+import java.awt.*;
+
+public class PilotingController extends MouseAdapter {
+    private DataAccess data_model;
+    private static JPanel[] panels;
+    private TitleScreen title_screen;
+    private String email;
+
+    public PilotingController(DataAccess data_model,TitleScreen title_screen, String email){
+        this.data_model = data_model;
+        this.title_screen = title_screen;
+        this.email = email;
+    }
+
+    @Override
+    public void mouseClicked(MouseEvent e){
+        JPanel clicked_panel = (JPanel) e.getSource();
+        Container window = this.title_screen.getParent();
+        window.removeAll();
+        if(clicked_panel.equals(this.panels[0])){
+            PortfolioCenterScreen portfolio_CenterScreen = new PortfolioCenterScreen(this.email);
+            PortfolioLeftScreen portfolio_LeftScreen = new PortfolioLeftScreen(this.email);
+            PortfolioRightScreen portfolio_RightScreen = new PortfolioRightScreen(this.email);
+            PortfolioTopScreen portfolio_TopScreen = new PortfolioTopScreen(this.email);
+            PortfolioBottomScreen portfolio_BottomScreen = new PortfolioBottomScreen();
+            window.add(portfolio_CenterScreen, BorderLayout.CENTER);
+            window.add(portfolio_LeftScreen, BorderLayout.WEST);
+            window.add(portfolio_RightScreen,BorderLayout.EAST);
+            window.add(portfolio_TopScreen, BorderLayout.NORTH);
+            //window.add(portfolio_BottomScreen, BorderLayout.SOUTH);
+            window.validate();
+            window.repaint();
+            PortfolioLeftScreen.setScrollPane(portfolio_LeftScreen.getWidth(),portfolio_LeftScreen.getHeight());
+            PortfolioRightScreen.setScrollPane(portfolio_RightScreen.getWidth(),portfolio_RightScreen.getHeight());
+            PortfolioCenterScreen.setScrollPane(window.getWidth()-portfolio_LeftScreen.getWidth()-portfolio_RightScreen.getWidth()-20,portfolio_RightScreen.getHeight());
+        }
+        else if(clicked_panel.equals(this.panels[1])){
+            GroupScreen group_screen = new GroupScreen();
+            window.add(group_screen);
+        }
+        else if(clicked_panel.equals(this.panels[2])){
+            ProfileScreen profile_screen = new ProfileScreen(this.email);
+            window.add(profile_screen, BorderLayout.CENTER);
+        }
+        else {
+
+            HistoryScreen history_screen = new HistoryScreen(window);
+            RefreshListener refresh_listener = new RefreshListener(history_screen,this.email);
+            window.add(new HeaderHistoryScreen(this.email,refresh_listener), BorderLayout.NORTH);
+            history_screen.setClientList(refresh_listener.refresh());
+            window.add(history_screen, BorderLayout.CENTER);
+            window.validate();
+            window.repaint();
+            history_screen.setScrollPanes(history_screen.getWidth(),history_screen.getHeight());
+        }
+        window.validate();
+        window.repaint();
+    }
+
+    public void setPanels(JPanel[] panels){
+        this.panels = new JPanel[panels.length];
+        for(int i=0;i<panels.length;i++){
+            this.panels[i]=panels[i];
+        }
+    }
+}
+import java.awt.*;
+import java.awt.image.*;
+import java.io.*;
+import java.util.logging.*;
+import javax.imageio.*;
+import javax.swing.*;
+import java.awt.event.*;
+
+public class PilotingScreen extends JPanel{
+    public PilotingScreen(PilotingController piloting_controller, String email, Container window){
+        JPanel center_panel = new JPanel();
+        BoxLayout center_layout = new BoxLayout(center_panel, BoxLayout.X_AXIS);
+        center_panel.setLayout(center_layout);
+        
+        Color window_color = new Color(33,36,38);
+        window.setBackground(window_color);
+        Color bckg_color = new Color(58,61,63);
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,25);
+
+        center_panel.setEnabled(true);
+        center_panel.setBackground(bckg_color);
+
+
+
+        JPanel synthesis_panel = new JPanel();
+        synthesis_panel.setBackground(bckg_color);
+        synthesis_panel.setPreferredSize(new Dimension(window.getWidth()/5,window.getHeight()/2));
+        synthesis_panel.setBorder(BorderFactory.createLineBorder(Color.BLACK,2));
+        synthesis_panel.addMouseListener(piloting_controller);
+
+        JLabel synthesis_label = new JLabel("Portfolio");
+        synthesis_label.setFont(label_font);
+        synthesis_label.setHorizontalTextPosition(JLabel.CENTER);
+        synthesis_label.setVerticalTextPosition(JLabel.TOP);
+        synthesis_label.setIcon(new ImageIcon("../Pictures/tmp/synthesis_image.png"));
+        synthesis_label.setForeground(Color.WHITE);
+        synthesis_panel.add(synthesis_label);
+
+
+        JPanel group_panel = new JPanel();
+        
+        group_panel.setBackground(bckg_color);
+        group_panel.setPreferredSize(new Dimension(window.getWidth()/5,window.getHeight()/2));
+        group_panel.setBorder(BorderFactory.createLineBorder(Color.BLACK,2));
+        group_panel.addMouseListener(piloting_controller);
+
+
+        JLabel group_label = new JLabel("Groups");
+        group_label.setFont(label_font);
+        group_label.setHorizontalTextPosition(JLabel.CENTER);
+        group_label.setVerticalTextPosition(JLabel.TOP);
+        group_label.setIcon(new ImageIcon("../Pictures/group_image.png"));
+        group_label.setForeground(Color.WHITE);
+        group_panel.add(group_label);
+
+
+        JPanel profile_panel = new JPanel();
+        profile_panel.setBackground(bckg_color);
+        profile_panel.setPreferredSize(new Dimension(window.getWidth()/5,window.getHeight()/2));
+        profile_panel.setBorder(BorderFactory.createLineBorder(Color.BLACK,2));
+        profile_panel.addMouseListener(piloting_controller);
+
+
+        JLabel profile_label = new JLabel("Profile");
+        profile_label.setFont(label_font);
+        profile_label.setHorizontalTextPosition(JLabel.CENTER);
+        profile_label.setVerticalTextPosition(JLabel.TOP);
+        profile_label.setIcon(new ImageIcon("../Pictures/profile_image.png"));
+        profile_label.setForeground(Color.WHITE);
+        profile_panel.add(profile_label);
+
+
+        JPanel history_panel = new JPanel();
+        history_panel.setBackground(bckg_color);
+        history_panel.setPreferredSize(new Dimension(window.getWidth()/5,window.getHeight()/2));
+        history_panel.setBorder(BorderFactory.createLineBorder(Color.BLACK,2));
+        history_panel.addMouseListener(piloting_controller);
+
+
+        JLabel history_label = new JLabel("History");
+        history_label.setFont(label_font);
+        history_label.setHorizontalTextPosition(JLabel.CENTER);
+        history_label.setVerticalTextPosition(JLabel.TOP);
+        history_label.setIcon(new ImageIcon("../Pictures/history_image.png"));
+        history_label.setForeground(Color.WHITE);
+        history_panel.add(history_label);
+
+
+        JPanel space_one = new JPanel();
+        space_one.setPreferredSize(new Dimension(window.getWidth()/40,1));
+        space_one.setBackground(window_color);
+
+        JPanel space_two = new JPanel();
+        space_two.setPreferredSize(new Dimension(window.getWidth()/40,1));
+        space_two.setBackground(window_color);
+
+        JPanel space_three = new JPanel();
+        space_three.setPreferredSize(new Dimension(window.getWidth()/40,1));
+        space_three.setBackground(window_color);
+
+        center_panel.add(synthesis_panel);
+        center_panel.add(space_one);
+
+        center_panel.add(group_panel);
+        center_panel.add(space_two);
+
+        center_panel.add(profile_panel);
+        center_panel.add(space_three);
+
+        center_panel.add(history_panel);
+
+        JPanel[] panels = new JPanel[4];
+        panels[0]=synthesis_panel;
+        panels[1]=group_panel;
+        panels[2]=profile_panel;
+        panels[3]=history_panel;
+        piloting_controller.setPanels(panels);
+
+        BoxLayout main_layout = new BoxLayout(this, BoxLayout.Y_AXIS);
+        this.setLayout(main_layout);
+        this.add(center_panel, BorderLayout.CENTER);
+    }
+}
+import java.awt.*;
+import javax.swing.*;
+import java.awt.event.*;
+
+public class PortfolioBottomScreen extends JPanel {
+    public PortfolioBottomScreen(){
+        this.add(new JButton("Portfolio"));
+    }
+}
+import java.awt.*;
+import javax.swing.*;
+import java.awt.event.*;
+import javax.swing.border.*;
+
+public class PortfolioCenterScreen extends JPanel {
+    private static JScrollPane scroll_bar;
+    private static JLabel title_label;
+    private static JPanel transaction_panel;
+    private static JPanel data_panel;
+    private static int client_id;
+
+    public PortfolioCenterScreen(String email){
+        Color window_color = new Color(33,36,38);
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,35);
+        Font specific_font = new Font(Font.SANS_SERIF,Font.PLAIN,50);
+        Font useless_font = new Font(Font.SANS_SERIF,Font.PLAIN,35);
+        Font title_font = new Font(Font.SANS_SERIF,Font.PLAIN,20);
+        Border title_border = BorderFactory.createLineBorder(Color.BLACK,2);
+        Border transaction_border = BorderFactory.createLineBorder(Color.BLACK,3);
+
+        this.setBackground(window_color);
+
+        JPanel container = new JPanel();
+        container.setLayout(new BoxLayout(container,BoxLayout.Y_AXIS));
+        container.setBackground(window_color);
+
+
+
+        JPanel financial_panel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        financial_panel.setBackground(window_color);
+        JPanel value_panel = new JPanel();
+        value_panel.setLayout(new BoxLayout(value_panel,BoxLayout.Y_AXIS));
+        value_panel.setBackground(window_color);
+
+
+        client_id = DataAccess.getIdOfClient(email);
+        String value_string;
+        JLabel financial_wealth = new JLabel(" Financial value ");
+        value_string = String.format("%.2f",DataAccess.getSellingValue(client_id));
+    value_string = "  "+value_string+"  ";
+    JLabel financial_value = new JLabel(value_string);
+    FinancialThread financial_updater = new FinancialThread(financial_value,client_id);
+    financial_updater.start();
+    financial_wealth.setForeground(Color.WHITE);
+    financial_wealth.setFont(label_font);
+    financial_value.setFont(label_font);
+    financial_value.setForeground(Color.WHITE);
+    financial_panel.add(financial_wealth);
+    value_panel.add(new JLabel(" "));
+    value_panel.add(financial_value);
+    value_panel.add(new JLabel(" "));
+    value_panel.setBorder(title_border);
+    JPanel value_container = new JPanel();
+    value_container.setBackground(window_color);
+    value_container.add(value_panel);
+
+    JLabel useless_label = new JLabel(" ");
+    useless_label.setFont(useless_font);
+
+    container.add(financial_panel);
+    container.add(useless_label);
+    //container.add(value_panel);
+    container.add(value_container);
+    //this.add(container, BorderLayout.CENTER);
+
+        JPanel center_panel = new JPanel();
+        center_panel.setLayout(new BoxLayout(center_panel,BoxLayout.Y_AXIS));
+        center_panel.setBackground(window_color);
+        center_panel.add(container);
+
+        transaction_panel = new JPanel();
+        transaction_panel.setBackground(window_color);
+        Border border = BorderFactory.createLineBorder(Color.BLACK,1);
+        title_label = new JLabel(" Transactions ");
+        title_label.setBackground(window_color);
+        title_label.setForeground(Color.WHITE);
+        title_label.setFont(title_font);
+        transaction_panel.setBorder(transaction_border);
+        transaction_panel.add(title_label, BorderLayout.SOUTH);
+
+        data_panel = new JPanel();
+        //JLabel data;
+        data_panel.setLayout(new BoxLayout(data_panel,BoxLayout.Y_AXIS));
+        data_panel.setBackground(window_color);
+        /*for(int i=0;i<10;i++){
+            data = new JLabel("                    "+i+"           ");
+            data.setBackground(window_color);
+            data.setForeground(Color.WHITE);
+            data.setFont(title_font);
+            data_panel.add(data);
+        }*/
+
+        scroll_bar = new JScrollPane(data_panel);
+        scroll_bar.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        scroll_bar.setBackground(window_color);
+        scroll_bar.setForeground(Color.WHITE);
+
+        JLabel useless_label_2 = new JLabel(" ");
+        useless_label_2.setFont(label_font);
+        JLabel useless_label_3 = new JLabel(" ");
+        useless_label_3.setFont(label_font);
+        JLabel useless_label_4 = new JLabel(" ");
+        useless_label_4.setFont(specific_font);
+
+        
+        center_panel.add(useless_label_2);
+        center_panel.add(useless_label_3);
+        center_panel.add(useless_label_4);
+        center_panel.add(transaction_panel);
+        center_panel.add(scroll_bar);
+        this.add(center_panel);
+    }
+    public static void setScrollPane(int width,int height){
+        scroll_bar.setPreferredSize(new Dimension(width,92));
+        transaction_panel.setPreferredSize(new Dimension(width,transaction_panel.getHeight()));
+        String[][][] list = DataAccess.getPortfolioTransactionsOfClient(client_id);
+        ClientTransactionThread client_thread = new ClientTransactionThread(list,data_panel,client_id);
+        client_thread.start();
+    }
+}
+import java.awt.*;
+import javax.swing.*;
+import java.awt.event.*;
+import javax.swing.border.*;
+import java.math.*;
+
+public class PortfolioLeftScreen extends JPanel {
+    private static JScrollPane scroll_bar;
+    private static int index;
+
+    public PortfolioLeftScreen(String email){
+        int client_id = DataAccess.getIdOfClient(email);
+        Color window_color = new Color(33,36,38);
+        this.setBackground(window_color);
+//        this.setLayout(new FlowLayout(FlowLayout.LEFT));
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,17);
+        Font title_font = new Font(Font.SANS_SERIF,Font.PLAIN,23);
+        JPanel container = new JPanel();
+        container.setBackground(window_color);
+        GridBagLayout grid_bag = new GridBagLayout();
+        GridBagConstraints constraints = new GridBagConstraints();
+        container.setLayout(grid_bag);
+        Border border = BorderFactory.createLineBorder(Color.BLACK,1);
+        Border column_border = BorderFactory.createLineBorder(Color.BLACK,2);
+        MatteBorder stock_border = new MatteBorder(0,0,0,2,Color.BLACK);
+        container.setBorder(border);
+        constraints.fill = GridBagConstraints.BOTH;
+        constraints.weightx = 1.0;
+        String[] column_names = {" Company "," Quantity "," Price "," Quote "};
+        JLabel[] column = new JLabel[4];
+
+
+        constraints.gridx = 0;
+        constraints.gridy = 0;
+        constraints.gridwidth = 4;
+        constraints.anchor=GridBagConstraints.CENTER;
+        constraints.weighty = 1;
+
+        JLabel title = new JLabel(" Stocks ", JLabel.CENTER);
+        title.setFont(title_font);
+        title.setForeground(Color.WHITE);
+        title.setBorder(border);
+        grid_bag.setConstraints(title,constraints);
+        container.add(title);
+
+
+        constraints.gridx = 0;
+        constraints.gridy = 1;
+        constraints.gridwidth = 1;
+
+        for(int i=0;i<4;i++){
+            constraints.gridx = i;
+            column[i] = new JLabel(column_names[i], JLabel.CENTER);
+            column[i].setFont(label_font);
+            column[i].setForeground(Color.WHITE);
+            column[i].setBorder(column_border);
+            grid_bag.setConstraints(column[i],constraints);
+            container.add(column[i]);
+        }
+
+
+        constraints.gridx = 0;
+        constraints.gridy = 1;
+
+        String[][] stocks = DataAccess.getPortfolioStocksOfClient(client_id);
+        if(stocks[0][0].equals("0") || stocks[0][0].equals("-1"))
+            this.add(container);
+        else if(stocks[0][0].equals("-1")){
+            constraints.gridy = 3;
+            constraints.gridwidth=4;
+            JLabel error = new JLabel("Connection to database lost", JLabel.CENTER);
+            error.setFont(label_font);
+            error.setForeground(Color.WHITE);
+            grid_bag.setConstraints(error,constraints);
+            container.add(error);
+            this.add(container);
+        }
+        else {
+            JLabel data;
+            double value;
+            BigDecimal bd, res;
+            int i;
+            for(i=0;i<stocks.length;i++){
+                constraints.gridy+=1;
+                    for(int j=0;j<stocks[i].length;j++){
+                        constraints.gridx=j;
+                        if(j<2)
+                            data = new JLabel(" "+stocks[i][j]+" ", JLabel.CENTER);
+                        else {
+                            value = Double.parseDouble(stocks[i][j]);
+                            data = new JLabel(" "+String.format("%.2f",value)+" ", JLabel.CENTER);
+                        }
+                        data.setFont(label_font);
+                        data.setForeground(Color.WHITE);
+                        data.setBorder(border);
+                        //data.setBorder(stock_border);
+                        grid_bag.setConstraints(data,constraints);
+                        container.add(data);
+                }
+            }
+            for(i=0;i<20;i++){
+                constraints.gridy+=1;
+                for(int j=0;j<4;j++){
+                    constraints.gridx=j;
+                    data = new JLabel(" ");
+                    data.setFont(label_font);
+                    data.setBorder(border);
+                    grid_bag.setConstraints(data,constraints);
+                    container.add(data);
+                }
+            }
+            index=constraints.gridy;
+            scroll_bar = new JScrollPane(container);
+            scroll_bar.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+            scroll_bar.setBackground(window_color);
+            scroll_bar.setForeground(Color.WHITE);
+            constraints.gridx = 5;
+            constraints.gridy = 0;
+            constraints.weightx=1.0;
+            constraints.weighty=1.0;
+            constraints.fill = GridBagConstraints.BOTH;
+            constraints.gridheight = 10;
+            grid_bag.setConstraints(scroll_bar,constraints);
+            this.add(scroll_bar, BorderLayout.CENTER);
+        }
+    }
+    public static void setScrollPane(int width,int height){
+        if(index>=20)
+            scroll_bar.setPreferredSize(new Dimension(width,height));
+    }
+}
+import java.awt.*;
+import javax.swing.*;
+import java.awt.event.*;
+import javax.swing.border.*;
+import java.math.*;
+
+public class PortfolioRightScreen extends JPanel {
+    private static JScrollPane scroll_bar;
+    private static int index;
+
+    public PortfolioRightScreen(String email){
+        int client_id = DataAccess.getIdOfClient(email);
+        Color window_color = new Color(33,36,38);
+        this.setBackground(window_color);
+//        this.setLayout(new FlowLayout(FlowLayout.LEFT));
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,17);
+        Font title_font = new Font(Font.SANS_SERIF,Font.PLAIN,23);
+        JPanel container = new JPanel();
+        container.setBackground(window_color);
+        GridBagLayout grid_bag = new GridBagLayout();
+        GridBagConstraints constraints = new GridBagConstraints();
+        container.setLayout(grid_bag);
+        Border border = BorderFactory.createLineBorder(Color.BLACK,1);
+        Border column_border = BorderFactory.createLineBorder(Color.BLACK,2);
+        MatteBorder stock_border = new MatteBorder(0,0,0,2,Color.BLACK);
+        container.setBorder(border);
+        constraints.fill = GridBagConstraints.BOTH;
+        constraints.weightx = 1.0;
+        String[] column_names = {" Type  "," Company "," Quantity "," Price "," Use Price "};
+        JLabel[] column = new JLabel[5];
+
+
+        constraints.gridx = 0;
+        constraints.gridy = 0;
+        constraints.gridwidth = 5;
+        constraints.anchor=GridBagConstraints.CENTER;
+        constraints.weighty = 1;
+
+
+        JLabel title = new JLabel(" Options ", JLabel.CENTER);
+        title.setFont(title_font);
+        title.setForeground(Color.WHITE);
+        title.setBorder(border);
+        grid_bag.setConstraints(title,constraints);
+        container.add(title);
+
+
+        constraints.gridx = 0;
+        constraints.gridy = 1;
+        constraints.gridwidth = 1;
+
+        for(int i=0;i<5;i++){
+            constraints.gridx = i;
+            column[i] = new JLabel(column_names[i], JLabel.CENTER);
+            column[i].setFont(label_font);
+            column[i].setForeground(Color.WHITE);
+            column[i].setBorder(column_border);
+            grid_bag.setConstraints(column[i],constraints);
+            container.add(column[i]);
+        }
+
+
+        constraints.gridx = 0;
+        constraints.gridy = 1;
+
+        String[][] warrants = DataAccess.getPortfolioWarrantsOfClient(client_id);
+        String[][] trackers = DataAccess.getPortfolioTrackersOfClient(client_id);
+        if(warrants[0][0].equals("0") && trackers[0][0].equals("0"))
+            this.add(container);
+        else if(warrants[0][0].equals("-1") || trackers[0][0].equals("-1")){
+            constraints.gridy = 3;
+            constraints.gridwidth=4;
+            JLabel error = new JLabel("Connection to database lost", JLabel.CENTER);
+            error.setFont(label_font);
+            error.setForeground(Color.WHITE);
+            grid_bag.setConstraints(error,constraints);
+            container.add(error);
+            this.add(container);
+        }
+        else {
+            JLabel data;
+            double value;
+            BigDecimal bd, res;
+            int i;
+            if(!(warrants[0][0].equals("0"))){
+                for(i=0;i<warrants.length;i++){
+                    constraints.gridy+=1;
+                        for(int j=0;j<warrants[i].length;j++){
+                            constraints.gridx=j;
+                            if(j<3)
+                                data = new JLabel(" "+warrants[i][j]+" ", JLabel.CENTER);
+                            else {
+                                value = Double.parseDouble(warrants[i][j]);
+                                data = new JLabel(" "+String.format("%.2f",value)+" ", JLabel.CENTER);
+                            }
+                            data.setFont(label_font);
+                            data.setForeground(Color.WHITE);
+                            data.setBorder(border);
+                            grid_bag.setConstraints(data,constraints);
+                            container.add(data);
+                    }
+                }
+            }
+            if(!(trackers[0][0].equals("0"))){
+                for(i=0;i<trackers.length;i++){
+                    constraints.gridy+=1;
+                        for(int j=0;j<trackers[i].length;j++){
+                            constraints.gridx=j;
+                            if(j<3)
+                                data = new JLabel(" "+trackers[i][j]+" ", JLabel.CENTER);
+                            else {
+                                value = Float.parseFloat(trackers[i][j]);
+                                data = new JLabel(" "+String.format("%.2f",value)+" ", JLabel.CENTER);
+                            }
+                            data.setFont(label_font);
+                            data.setForeground(Color.WHITE);
+                            data.setBorder(border);
+                            grid_bag.setConstraints(data,constraints);
+                            container.add(data);
+                    }
+                }
+            }
+            for(i=0;i<20;i++){
+                constraints.gridy+=1;
+                for(int j=0;j<5;j++){
+                    constraints.gridx=j;
+                    data = new JLabel(" ");
+                    data.setFont(label_font);
+                    data.setBorder(border);
+                    grid_bag.setConstraints(data,constraints);
+                    container.add(data);
+                }
+            }
+            index=constraints.gridy;
+            scroll_bar = new JScrollPane(container);
+            scroll_bar.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+            scroll_bar.setBackground(window_color);
+            scroll_bar.setForeground(Color.WHITE);
+            constraints.gridx = 5;
+            constraints.gridy = 0;
+            constraints.weightx=1.0;
+            constraints.weighty=1.0;
+            constraints.fill = GridBagConstraints.BOTH;
+            constraints.gridheight = 10;//constraints.gridy;
+            grid_bag.setConstraints(scroll_bar,constraints);
+            this.add(scroll_bar, BorderLayout.CENTER);
+        }
+    }
+    public static void setScrollPane(int width,int height){
+        if(index>=20)
+            scroll_bar.setPreferredSize(new Dimension(width,height));
+    }
+}
+import java.awt.*;
+import javax.swing.*;
+import java.awt.event.*;
+
+public class PortfolioTopScreen extends JPanel {
+    public PortfolioTopScreen(String email){
+        Color window_color = new Color(33,36,38);
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,20);
+        this.setLayout(new GridLayout(2,3));
+        this.setBackground(window_color);
+        JPanel left_panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel right_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        left_panel.setBackground(window_color);
+        right_panel.setBackground(window_color);
+
+        JButton return_button = new JButton("Return");
+        return_button.addActionListener(new ReturnController(this));
+        return_button.setBackground(window_color);
+        return_button.setForeground(Color.WHITE);
+        return_button.setFont(label_font);
+        left_panel.add(return_button);
+
+
+        int client_id = DataAccess.getIdOfClient(email);
+        JLabel cash_label = new JLabel("Cash Flow : ");
+        JLabel cash_value = new JLabel(Double.toString(DataAccess.getCashFlow(client_id)));
+        CashThread cash_updater = new CashThread(cash_value,client_id);
+        cash_updater.start();
+        cash_label.setForeground(Color.WHITE);
+        cash_label.setFont(label_font);
+        cash_value.setFont(label_font);
+        cash_value.setForeground(Color.WHITE);
+        right_panel.add(cash_label);
+        right_panel.add(cash_value);
+
+        this.add(left_panel);
+        this.add(new JLabel(""));
+        this.add(right_panel);
+        this.add(new JLabel(""));
+        this.add(new JLabel(""));
+        this.add(new JLabel(""));
+    }
+}
+import java.awt.event.*;
+import javax.swing.*;
+import java.awt.*;
+import java.text.NumberFormat;
+import java.lang.*;
+import java.util.*;
+import java.lang.Exception.*;
+import java.text.ParseException;
+
+public class ProfileController implements ActionListener {
+    private JTextField[] answers;
+    private JLabel[] errors;
+    private JPanel default_panel;
+    private String email;
+
+    public ProfileController(String email,JTextField[] answers,JLabel[] errors,JPanel default_panel){
+        this.answers = answers;
+        this.errors = errors;
+        this.default_panel=default_panel;
+        this.email=email;
+    }
+    @Override
+    public void actionPerformed(ActionEvent e){
+        String[] string_answer = new String[10];
+        float[] answer_values = new float[8];
+        float risk_rate=0;
+        Number number;
+        boolean update;
+        boolean[] decision = new boolean[3];
+        for(int i=0;i<10;i++){
+            string_answer[i] = String.format(this.answers[i].getText());
+            if(string_answer[i].equals("")){
+                this.errors[i].setText("      Fill it in");
+                return ;
+            }
+            else
+                this.errors[i].setText(" ");
+            if(i<7){
+                try {
+                    number = NumberFormat.getNumberInstance(Locale.ENGLISH).parse(string_answer[i]);
+                    answer_values[i] = number.floatValue();
+                } catch(ParseException pe){
+                    this.errors[i].setText("      Incorrect entry");
+                }
+            }
+            else {
+                if(string_answer[i].equals("yes"))
+                    decision[i%7]=true;
+                else if(string_answer[i].equals("no"))
+                    decision[i%7]=false;
+                else
+                    this.errors[i].setText("      Incorrect entry");
+            }
+
+        }
+        for(int i=0;i<3;i++){
+            if(decision[i]==true)
+                risk_rate+=0.15;
+        }
+        update=DataAccess.setClientData(DataAccess.getIdOfClient(this.email),answer_values,decision[0],risk_rate);
+        if(update==false){
+            this.errors[10].setText("               Could not reach database, log out and log in again.");
+            return ;
+        }
+        Container window = this.default_panel.getParent();
+        window.removeAll();
+        JPanel[] piloting_panels = ConnectionListener.getPilotingPanels();
+        window.add(piloting_panels[0], BorderLayout.NORTH);
+        window.add(piloting_panels[1], BorderLayout.CENTER);
+        window.add(piloting_panels[2], BorderLayout.SOUTH);
+        window.validate();
+        window.repaint();
+    }
+}
+import java.awt.*;
+import javax.swing.*;
+import java.awt.event.*;
+
+public class ProfileScreen extends JPanel {
+    public ProfileScreen(String email){
+        Color window_color = new Color(33,36,38);
+        this.setBackground(window_color);
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,20);
+
+
+        JPanel survey = new JPanel();
+        survey.setLayout(new BoxLayout(survey,BoxLayout.Y_AXIS));
+        survey.setBackground(window_color);
+        JLabel useless;
+        JTextField[] answers = new JTextField[10];
+        JLabel[] errors = new JLabel[11];
+
+
+        for(int i=0;i<11;i++){
+            errors[i] = new JLabel(" ");
+            errors[i].setForeground(Color.RED);
+        }
+
+
+        JPanel header_panel = new JPanel(new GridLayout(1,3));
+        JPanel return_panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        return_panel.setBackground(window_color);
+        header_panel.setBackground(window_color);
+        JButton return_button = new JButton("Return");
+        return_button.setBackground(window_color);
+        return_button.setForeground(Color.WHITE);
+        return_button.addActionListener(new ReturnController(this));
+        return_panel.add(return_button);
+        header_panel.add(return_panel);
+
+        JPanel error_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JPanel submit_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        submit_panel.setBackground(window_color);
+        error_panel.setBackground(window_color);
+        JButton submit = new JButton("Submit");
+        submit.addActionListener(new ProfileController(email,answers,errors,this));
+        submit.setBackground(window_color);
+        submit.setForeground(Color.WHITE);
+        submit_panel.add(submit);
+        error_panel.add(errors[10]);
+        header_panel.add(error_panel);
+        header_panel.add(submit_panel);
+
+        survey.add(header_panel);
+
+
+        JPanel question_1 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_1.setBackground(window_color);
+
+        JLabel total_invest = new JLabel("1) How much money do you wish to invest in this simulation ?        ");
+        total_invest.setFont(label_font);
+        total_invest.setForeground(Color.WHITE);
+        answers[0] = new JTextField(10);
+        answers[0].setFont(label_font);
+        answers[0].setBackground(window_color);
+        answers[0].setForeground(Color.WHITE);
+        question_1.add(total_invest);
+        question_1.add(answers[0]);
+        question_1.add(errors[0]);
+        survey.add(question_1);
+        useless=new JLabel("      ");
+        survey.add(useless);
+
+
+        JPanel question_2 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_2.setBackground(window_color);
+
+        JLabel invest_rate = new JLabel("2) What rate of this amount of money should be invested at the same time at most ?        ");
+        invest_rate.setForeground(Color.WHITE);
+        invest_rate.setFont(label_font);
+        answers[1] = new JTextField(10);
+        answers[1].setFont(label_font);
+        answers[1].setBackground(window_color);
+        answers[1].setForeground(Color.WHITE);
+        question_2.add(invest_rate);
+        question_2.add(answers[1]);
+        question_2.add(errors[1]);
+        survey.add(question_2);
+        useless=new JLabel("      ");
+        survey.add(useless);
+
+
+        JPanel question_3 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_3.setBackground(window_color);
+
+        JLabel capital = new JLabel("3) What is the sum of the value of everything you own ?        ");
+        capital.setForeground(Color.WHITE);
+        capital.setFont(label_font);
+        answers[2] = new JTextField(10);
+        answers[2].setFont(label_font);
+        answers[2].setBackground(window_color);
+        answers[2].setForeground(Color.WHITE);
+        question_3.add(capital);
+        question_3.add(answers[2]);
+        question_3.add(errors[2]);
+        survey.add(question_3);
+        useless=new JLabel("      ");
+        survey.add(useless);
+
+
+        JPanel question_4 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_4.setBackground(window_color);
+
+        JLabel net_capital = new JLabel("4) What is the sum of the net value of everything you own ?        ");
+        net_capital.setForeground(Color.WHITE);
+        net_capital.setFont(label_font);
+        answers[3] = new JTextField(10);
+        answers[3].setFont(label_font);
+        answers[3].setBackground(window_color);
+        answers[3].setForeground(Color.WHITE);
+        question_4.add(net_capital);
+        question_4.add(answers[3]);
+        question_4.add(errors[3]);
+        survey.add(question_4);
+        useless=new JLabel("      ");
+        survey.add(useless);
+
+
+        JPanel question_5 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_5.setBackground(window_color);
+
+        JLabel debt_value = new JLabel("5) How much debt do you have ?        ");
+        debt_value.setForeground(Color.WHITE);
+        debt_value.setFont(label_font);
+        answers[4] = new JTextField(10);
+        answers[4].setFont(label_font);
+        answers[4].setBackground(window_color);
+        answers[4].setForeground(Color.WHITE);
+        question_5.add(debt_value);
+        question_5.add(answers[4]);
+        question_5.add(errors[4]);
+        survey.add(question_5);
+        useless=new JLabel("      ");
+        survey.add(useless);
+
+
+        JPanel question_6 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_6.setBackground(window_color);
+
+        JLabel income = new JLabel("6) How much income are you sure to earn every month ?        ");
+        income.setForeground(Color.WHITE);
+        income.setFont(label_font);
+        answers[5] = new JTextField(10);
+        answers[5].setFont(label_font);
+        answers[5].setBackground(window_color);
+        answers[5].setForeground(Color.WHITE);
+        question_6.add(income);
+        question_6.add(answers[5]);
+        question_6.add(errors[5]);
+        survey.add(question_6);
+        useless=new JLabel("      ");
+        survey.add(useless);
+
+ 
+        JPanel question_7 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_7.setBackground(window_color);
+
+        JLabel time = new JLabel("7) For how many years do you plan to not need the invested money ?        ");
+        time.setForeground(Color.WHITE);
+        time.setFont(label_font);
+        answers[6] = new JTextField(10);
+        answers[6].setFont(label_font);
+        answers[6].setBackground(window_color);
+        answers[6].setForeground(Color.WHITE);
+        question_7.add(time);
+        question_7.add(answers[6]);
+        question_7.add(errors[6]);
+        survey.add(question_7);
+        useless=new JLabel("      ");
+        survey.add(useless);
+
+
+        JPanel question_8 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_8.setBackground(window_color);
+
+        JLabel life = new JLabel("8) Do you plan to live off AFIS ?(yes/no)        ");
+        life.setForeground(Color.WHITE);
+        life.setFont(label_font);
+        answers[7] = new JTextField(10);
+        answers[7].setFont(label_font);
+        answers[7].setBackground(window_color);
+        answers[7].setForeground(Color.WHITE);
+        question_8.add(life);
+        question_8.add(answers[7]);
+        question_8.add(errors[7]);
+        survey.add(question_8);
+        useless=new JLabel("      ");
+        survey.add(useless);
+
+
+        JPanel question_9 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_9.setBackground(window_color);
+
+        JLabel risky = new JLabel("9) 75% chance of doubling the investment, 25% chance of loosing 3/4, invest ?(yes/no)        ");
+        risky.setForeground(Color.WHITE);
+        risky.setFont(label_font);
+        answers[8] = new JTextField(10);
+        answers[8].setFont(label_font);
+        answers[8].setBackground(window_color);
+        answers[8].setForeground(Color.WHITE);
+        question_9.add(risky);
+        question_9.add(answers[8]);
+        question_9.add(errors[8]);
+        survey.add(question_9);
+        useless=new JLabel("      ");
+        survey.add(useless);
+
+
+        JPanel question_10 = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        question_10.setBackground(window_color);
+
+        JLabel risk = new JLabel("10) Are you willing to make a very risky decision if the reward is very important ?(yes/no)        ");
+        risk.setForeground(Color.WHITE);
+        risk.setFont(label_font);
+        answers[9] = new JTextField(10);
+        answers[9].setFont(label_font);
+        answers[9].setBackground(window_color);
+        answers[9].setForeground(Color.WHITE);
+        question_10.add(risk);
+        question_10.add(answers[9]);
+        question_10.add(errors[9]);
+        survey.add(question_10);
+
+
+/*
+        JPanel submit_panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        submit_panel.setBackground(window_color);
+        JButton submit = new JButton("Submit");
+        submit.addActionListener(new ProfileController(email,answers,errors,this));
+        submit.setBackground(window_color);
+        submit.setForeground(Color.WHITE);
+        submit_panel.add(submit);
+        submit_panel.add(errors[10]);
+        survey.add(submit_panel);
+*/
+
+
+        this.add(survey);
+    }
+}
+import java.awt.event.*;
+import javax.swing.*;
+import java.awt.*;
+
+public class RefreshListener implements ActionListener {
+    private HistoryScreen view;
+    private String client_email;
+
+    public RefreshListener(HistoryScreen view,String client_email){
+        this.view = view;
+        this.client_email = client_email;
+    }
+    @Override
+    public void actionPerformed(ActionEvent e){
+        int client_id = DataAccess.getIdOfClient(this.client_email);
+        if(client_id>0){
+            this.view.setClientList(DataAccess.getTransactionsOfClient(client_id));
+            this.view.setScrollPanes(this.view.getWidth(),this.view.getHeight());
+        }
+        else {
+            this.view.setErrorMessage("Your connection expired, please logout and reconnect.");
+        }
+    }
+    public String[][][] refresh(){
+        int client_id = DataAccess.getIdOfClient(this.client_email);
+        if(client_id>0){
+            return DataAccess.getTransactionsOfClient(client_id);
+        }
+        else {
+            String[][][] error = new String[1][1][1];
+            error[0][0][0]="-1";
+            this.view.setErrorMessage("Your connection expired, please logout and reconnect.");
+            return error;
+        }
+    }
+}
+import java.awt.event.*;
+import javax.swing.*;
+import java.awt.*;
+
+public class ReturnController implements ActionListener {
+    private JPanel default_panel;
+
+    public ReturnController(JPanel default_panel){
+        this.default_panel = default_panel;
+    }
+    @Override
+    public void actionPerformed(ActionEvent e){
+        Container window = this.default_panel.getParent();
+        window.removeAll();
+        JPanel[] piloting_panels = ConnectionListener.getPilotingPanels();
+        window.add(piloting_panels[0], BorderLayout.NORTH);
+        window.add(piloting_panels[1], BorderLayout.CENTER);
+        window.add(piloting_panels[2], BorderLayout.SOUTH);
+        window.validate();
+        window.repaint();
+    }
+}
+import javax.swing.*;
+import java.awt.event.*;
+import java.awt.*;
+
+public class Start {
+    private static JFrame window;
+    private static Point mouseDownCompCoords;
+    public static void main(String[] args){
+        window = new JFrame("Automated Investment Financial System");
+        window.setSize(1300,600);
+        //window.setLayout(new GridLayout(3,3));
+        window.setUndecorated(true);
+        //window.setBounds(0,0,1300,600);
+        //window.getContentPane().setBackground(new Color(33,36,38));
+        configListener();
+
+        /*
+        
+        ComponentResizer cr = new ComponentResizer();
+        cr.registerComponent(window);
+        cr.setSnapSize(new Dimension(10,10));
+        cr.setMaximumSize(new Dimension(2000,2000));
+        cr.setMinimumSize(new Dimension(1300,600));
+        
+        */
+	
+    	JMenuBar bar = new JMenuBar();
+    	bar.setBackground(new Color(33,36,38));
+    	bar.setLayout(new BorderLayout());
+    	bar.setBorder(BorderFactory.createMatteBorder(0,0,1,0, new Color(65,65,65)));
+	   	
+    	JLabel lab_p = new JLabel("AFIS  ");
+    	lab_p.setFont(new Font("Arial Rounded MT Bold",Font.BOLD,15));
+    	lab_p.setForeground(new Color(240,240,240));
+	   	
+    	JLabel lab_t = new JLabel("AUTOMATED FINANCIAL INVESTMENT SYSTEM");
+    	lab_t.setFont(new Font("Century Gothic",Font.PLAIN,12));
+    	lab_t.setForeground(new Color(180,180,200));
+	   	
+    	JButton close = (JButton)new IconButton("close");
+    	JButton minimize = (JButton)new IconButton("minimize");
+    	close.addActionListener(new MenuListener("close"));
+    	minimize.addActionListener(new MenuListener("minimize"));
+	   	
+    	JPanel pan_e = new JPanel(new GridBagLayout());
+    	pan_e.setBackground(null);
+    	pan_e.add(lab_p, new GridBagConstraints());
+    	pan_e.add(lab_t);
+	   	
+    	JPanel pan = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+    	pan.setBackground(null);
+    	pan.add(minimize);
+    	pan.add(close);
+	   	
+    	bar.add(pan_e, BorderLayout.CENTER);
+    	bar.add(pan, BorderLayout.EAST);
+    	window.setJMenuBar(bar);
+
+        //window.getContentPane().setBackground(Color.RED);
+
+        ConnectionPage connection_page = new ConnectionPage(window.getWidth()/80);
+
+        //window.addComponentListener(new WindowResizer(connection_page));
+        window.addWindowListener(new WindowCloser());
+        window.add(new JLabel());
+        window.add(connection_page);
+
+        window.setVisible(true);
+    }
+    static public JFrame get(){
+        return window;
+    }
+    static private void configListener(){
+	    window.addMouseListener(new MouseListener(){
+		    @Override public void mouseReleased(MouseEvent e){ mouseDownCompCoords = null; }
+		    @Override public void mousePressed(MouseEvent e){ mouseDownCompCoords = e.getPoint(); }
+		    @Override public void mouseExited(MouseEvent e){}
+		    @Override public void mouseEntered(MouseEvent e){}
+		    @Override public void mouseClicked(MouseEvent e){}
+	    });
+	    
+	    window.addMouseMotionListener(new MouseMotionListener(){
+	    	@Override public void mouseMoved(MouseEvent e){}
+	    	@Override public void mouseDragged(MouseEvent e){
+		        Point currCoords = e.getLocationOnScreen();
+		        window.setLocation(currCoords.x - mouseDownCompCoords.x, currCoords.y - mouseDownCompCoords.y);
+		    }
+	    });
+    }
+}
+import java.awt.*;
+import java.awt.image.*;
+import java.io.*;
+import java.util.logging.*;
+import javax.imageio.*;
+import javax.swing.*;
+import java.awt.event.*;
+
+public class TitleScreen extends JPanel{
+    public TitleScreen(String email,ConnectionPage connection_page){
+        Color window_color = new Color(33,36,38);
+        Font text_font = new Font(Font.SANS_SERIF,Font.PLAIN,20);
+
+        JLabel mail_label = new JLabel(email, JLabel.LEFT);
+
+        mail_label.setFont(text_font);
+        mail_label.setForeground(Color.WHITE);
+        mail_label.setVerticalAlignment(JLabel.NORTH);
+        mail_label.setHorizontalAlignment(JLabel.LEFT);
+
+
+        JButton logout_button = new JButton("Logout");
+        logout_button.setBackground(window_color);
+        logout_button.setForeground(Color.WHITE);
+        logout_button.addActionListener(new LogoutListener(connection_page,this));
+
+        logout_button.setFont(text_font);
+        logout_button.setVerticalAlignment(JButton.NORTH);
+        logout_button.setHorizontalAlignment(JButton.RIGHT);
+
+
+        JPanel button_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+        button_panel.setBackground(window_color);
+        button_panel.add(logout_button);
+
+        this.setBackground(window_color);
+        this.setForeground(Color.WHITE);
+
+        this.setLayout(new GridLayout(3,3));
+
+        this.add(mail_label);
+        this.add(new JLabel(""));
+        this.add(button_panel);
+
+
+        Font label_font = new Font(Font.SANS_SERIF,Font.PLAIN,25);
+
+        //JLabel startup_label = new JLabel("Start/Stop AFIS");
+        //startup_label.setFont(label_font);
+        //startup_label.setForeground(Color.WHITE);
+        //this.add(startup_label);
+
+        JPanel title_panel = new JPanel(new GridLayout(1,2));
+        JPanel cash_panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel launch_panel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        title_panel.setBackground(window_color);
+        cash_panel.setBackground(window_color);
+        launch_panel.setBackground(window_color);
+        JLabel cash_label = new JLabel("Cash flow : ");
+        int client_id = DataAccess.getIdOfClient(email);
+        JLabel cash_value = new JLabel(Double.toString(DataAccess.getCashFlow(client_id)));
+        CashThread cash_updater = new CashThread(cash_value,client_id);
+        cash_updater.start();
+        cash_label.setForeground(Color.WHITE);
+        cash_label.setFont(label_font);
+        cash_value.setFont(label_font);
+        cash_value.setForeground(Color.WHITE);
+        cash_panel.add(cash_label);
+        cash_panel.add(cash_value);
+
+        JButton launch_button = new JButton("Start/Stop AFIS");
+        launch_button.addActionListener(new LaunchController(launch_button));
+        launch_button.setFont(label_font);
+        launch_button.setBackground(window_color);
+        launch_button.setForeground(Color.WHITE);
+        launch_panel.add(launch_button);
+
+        title_panel.add(cash_panel);
+        title_panel.add(launch_panel);
+        //this.add(title_panel);
+        this.add(cash_panel);
+        this.add(launch_panel);
+        this.add(new JLabel(""));
+        this.add(new JLabel(""));
+        this.add(new JLabel(""));
+        this.add(new JLabel(""));
+
+        JLabel power = new JLabel("");
+        power.setIcon(new ImageIcon("../Pictures/synthesis_image.png"));
+        //this.add(new JLabel(""));
+        //this.add(power);
+
+        /*JPanel money_panel = new JPanel(new GridLayout(2,1));
+        money_panel.setBackground(window_color);
+        JLabel financial_wealth = new JLabel("Financial wealth : ");
+        JLabel invested_money = new JLabel("Invested money : ");
+        financial_wealth.setForeground(Color.WHITE);
+        invested_money.setForeground(Color.WHITE);
+        financial_wealth.setFont(label_font);
+        invested_money.setFont(label_font);
+        money_panel.add(financial_wealth);
+        money_panel.add(invested_money);
+        this.add(money_panel);*/
+
+
+        JLabel useless_one = new JLabel("");
+        useless_one.setFont(label_font);
+
+        JLabel useless_two = new JLabel("");
+        useless_two.setFont(label_font);
+
+        JLabel useless_three = new JLabel("");
+        useless_three.setFont(label_font);
+
+        //this.add(useless_one);
+        //this.add(useless_two);
+        //this.add(useless_three);
+//        this.add(new JLabel(""));
+//        this.add(new JLabel(""));
+//        this.add(new JLabel(""));
+    }
+}
+import java.awt.event.*;
+
+public class WindowCloser extends WindowAdapter {
+    public WindowCloser(){
+        ;
+    }
+    public void windowClosing(WindowEvent we){
+        System.exit(0);
+    }
+}
+import java.awt.*;
+import java.awt.event.*;
+
+public class WindowResizer extends ComponentAdapter {
+    private ConnectionPage connection_page;
+    public WindowResizer(ConnectionPage connection_page){
+        this.connection_page=connection_page;
+    }
+    public void componentResized(ComponentEvent e){
+    }
+}

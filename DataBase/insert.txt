@@ -1,0 +1,22 @@
+INSERT INTO Groups()
+VALUES(1,"Super furets",1,"2015-04-01",1,50.45,64.48,180.97,0.45,125000.54,1.5,0.78);
+
+INSERT INTO GroupMember()
+VALUES(1,1,"2015-04-01",45.485);
+
+INSERT INTO GroupStocksTransaction()
+VALUES(1,1,"BUY","US38259P7069",500.458,100,"2015-04-01",48521.15);
+
+INSERT INTO GroupStock()
+VALUES(1,1,"US38259P7069",100,"2015-04-01",500.78);
+
+INSERT INTO GroupTrackerTransaction()
+VALUES(0,2,23.5,"SELL",59.4854,"123456789876",48.895,158,"2015-04-05");
+
+
+INSERT INTO GroupTracker()
+VALUES(1,2,"123456789876",100,45.48,"2015-04-01","US38259P7069","Call",500.78);
+
+
+SELECT TName,SName,operation,operationPrice,optionPrice,underlyingPrice,Quantity,transactionTime FROM GroupTrackerTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE groupId=2;
+

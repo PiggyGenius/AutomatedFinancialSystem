@@ -1,0 +1,983 @@
+import java.sql.*;
+
+public class DataAccess {
+    private Access connection;
+    private static Statement stmt;
+
+    public DataAccess(){
+        this.connection = new Access();
+        this.stmt = this.connection.getStatement();
+    }
+    public static int clientAuthentification(String email, String password){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM Client WHERE emailAddress=\""+email+"\" AND password=\""+password+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 1)
+                return 1;
+            else 
+                return 0;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            return -1;
+        }
+    }
+
+    public static int getNumberOfGroups(int client_id){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(groupId) FROM GroupMember WHERE clientId="+client_id+";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            return rs.getInt(1);
+        } catch(SQLException se){
+            return -1;
+        } catch(EXception e){
+            return -1;
+        }
+    }
+
+    public static double getSellingValue(int client_id){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM ClientData WHERE clientId=\""+client_id+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result = rs.getInt(1);
+            double value;
+            rs.close();
+            if(result == 1){
+                query = "SELECT sellingValue FROM ClientData WHERE clientId=\""+client_id+"\";";
+                rs = stmt.executeQuery(query);
+                rs.first();
+                value = rs.getDouble(1);
+                rs.close();
+                return value;
+            }
+            else 
+                return -1;
+        } catch(SQLException se){
+            System.out.println(se.getMessage()+" Selling value");
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage()+" Selling value");
+            return -1;
+        }
+    }
+
+    public static double getCashFlow(int client_id){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM ClientData WHERE clientId=\""+client_id+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result = rs.getInt(1);
+            double value;
+            rs.close();
+            if(result == 1){
+                query = "SELECT cashFlow FROM ClientData WHERE clientId=\""+client_id+"\";";
+                rs = stmt.executeQuery(query);
+                rs.first();
+                value = rs.getDouble(1);
+                rs.close();
+                return value;
+            }
+            else 
+                return -1;
+        } catch(SQLException se){
+            System.out.println(se.getMessage()+" cashflow");
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage()+" cash_flow");
+            return -1;
+        }
+    }
+
+    public static double getInvestMoney(int client_id){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM ClientData WHERE clientId=\""+client_id+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result = rs.getInt(1);
+            double value;
+            rs.close();
+            if(result == 1){
+                query = "SELECT investMoney FROM ClientData WHERE clientId=\""+client_id+"\";";
+                rs = stmt.executeQuery(query);
+                rs.first();
+                value = rs.getDouble(1);
+                rs.close();
+                return value;
+            }
+            else 
+                return -1;
+        } catch(SQLException se){
+            System.out.println(se.getMessage()+" invest money");
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage()+" invest money");
+            return -1;
+        }
+    }
+
+    public static boolean setClientData(int clientId,float[] answers, boolean decision,float risk_rate){
+        try {
+            stmt.executeUpdate("UPDATE ClientData SET investMoney="+answers[0]+",investRate="+answers[1]+",capitalAmount="+answers[2]+",netCapitalAmount="+answers[3]+",debtAmount="+answers[4]+",safeIncome="+answers[5]+",limitedTime="+answers[6]+",wayOfLife="+decision+",riskRate="+risk_rate+";");
+            return true;
+        } catch(SQLException se){
+            return false;
+        } catch(Exception e){
+            return false;
+        }
+    }
+
+    public static int getIdOfClient(String email){
+        try {
+            ResultSet rs = null;
+            String query = "SELECT COUNT(clientId) FROM Client WHERE emailAddress=\""+email+"\";";
+            rs = stmt.executeQuery(query);
+            rs.first();
+            int result = rs.getInt(1);
+            rs.close();
+            if(result == 1){
+                query = "SELECT clientId FROM Client WHERE emailAddress=\""+email+"\";";
+                rs = stmt.executeQuery(query);
+                rs.first();
+                result = rs.getInt(1);
+                rs.close();
+                return result;
+            }
+            else 
+                return 0;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            return -1;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            return -1;
+        }
+    }
+
+    public String[][] getClientsInformation(){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(clientId) FROM Client;";
+            String query = "SELECT * FROM Client;";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+    public String[] getClientInformation(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(clientId) FROM Client WHERE clientId="+clientId+";";
+            String query = "SELECT * FROM Client WHERE clientId="+clientId+";";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[] result = new String[1];
+                result[0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[] result = new String[rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<rsmd.getColumnCount();i++){
+                result[i]=rs.getString(i+1);
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[] result = new String[1];
+            result[0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[] result = new String[1];
+            result[0]="-1";
+            return result;
+        }
+    }
+    public String[][] getGroupsInformation(){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(groupId) FROM Client;";
+            String query = "SELECT * FROM GROUP;";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+    public String[][] getTrackersOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(ISIN) FROM ClientTracker NATURAL JOIN Tracker WHERE clientId="+clientId+";";
+            String query = "SELECT name,quantity,buyingDate,buyingPrice,price FROM ClientWarrant NATURAL JOIN Warrant WHERE clientId="+clientId+";";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][] getPortfolioTrackersOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(transactionId) FROM ClientTracker WHERE clientId="+clientId+";";
+            String query = "SELECT type,SName,quantity,buyingPrice,exercicePrice FROM ClientTracker C, Stock S WHERE C.underlyingISIN=S.ISIN AND clientId="+clientId+";";
+            rs = stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+
+    public String[][] getWarrantsOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(ISIN) FROM ClientWarrant NATURAL JOIN Warrant WHERE clientId="+clientId+";";
+            String query = "SELECT name,quantity,buyingDate,buyingPrice,price FROM ClientWarrant NATURAL JOIN Warrant WHERE clientId="+clientId+";";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][] getPortfolioWarrantsOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(transactionId) FROM ClientWarrant WHERE clientId="+clientId+";";
+            String query = "SELECT type,SName,quantity,buyingPrice,exercisePrice FROM ClientWarrant C, Stock S WHERE C.underlyingISIN=S.ISIN AND clientId="+clientId+";";
+            rs = stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+
+    public String[][] getStocksOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(ISIN) FROM ClientStock NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            String query = "SELECT name,quantity,buyingDate,buyingPrice,price FROM ClientStock NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            rs = this.stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = this.stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][] getPortfolioStocksOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String query_test = "SELECT COUNT(transactionId) FROM ClientStock WHERE clientId="+clientId+";";
+            String query = "SELECT SName,quantity,buyingPrice,SPrice FROM ClientStock NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            rs = stmt.executeQuery(query_test);
+            rs.first();
+            int result_number = rs.getInt(1);
+            rs.close();
+            if(result_number == 0){
+                String[][] result = new String[1][1];
+                result[0][0]="0";
+                return result;
+            }
+            rs = null;
+            rs = stmt.executeQuery(query);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            String[][] result = new String[result_number][rsmd.getColumnCount()];
+            rs.first();
+            for(int i=0;i<result_number;i++){
+                for(int j=0;j<rsmd.getColumnCount();j++){
+                    result[i][j]=rs.getString(j+1);
+                }
+                rs.next();
+            }
+            rs.close();
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][] result = new String[1][1];
+            result[0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][][] getTransactionsOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String stocks_query_test = "SELECT COUNT(transactionId) FROM ClientStocksTransaction NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            String warrants_query_test = "SELECT COUNT(transactionId) FROM ClientWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE clientId="+clientId+";";
+            String trackers_query_test = "SELECT COUNT(transactionId) FROM ClientTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE clientId="+clientId+";";
+
+
+            String stocks_query = "SELECT SName,operation,operationPrice,underlyingPrice,quantity,transactionTime FROM ClientStocksTransaction NATURAL JOIN Stock WHERE clientId="+clientId+" ORDER BY(transactionTime)";
+
+            String warrants_query = "SELECT WName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM ClientWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE clientId="+clientId+" ORDER BY(transactionTime)";
+
+            String trackers_query = "SELECT TName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM ClientTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE clientId="+clientId+" ORDER BY(transactionTime)";
+
+            rs = stmt.executeQuery(stocks_query_test);
+            rs.first();
+            int stocks_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(warrants_query_test);
+            rs.first();
+            int warrants_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(trackers_query_test);
+            rs.first();
+            int trackers_result_number = rs.getInt(1);
+            rs.close();
+
+            if(stocks_result_number==0 && warrants_result_number==0 && trackers_result_number==0){
+                String[][][] result = new String[1][1][1];
+                result[0][0][0]="0";
+                return result;
+            }
+
+            String[][][] result = new String[3][][];
+            ResultSetMetaData rsmd;
+            rs = null;
+            if(stocks_result_number!=0){
+                rs = stmt.executeQuery(stocks_query);
+                rsmd = rs.getMetaData();
+                result[0] = new String[stocks_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<stocks_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[0][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[0] = new String[1][1];
+                result[0][0][0]="0";
+            }
+
+
+            if(warrants_result_number!=0){
+                rs = stmt.executeQuery(warrants_query);
+                rsmd = rs.getMetaData();
+                result[1] = new String[warrants_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<warrants_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[1][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[1] = new String[1][1];
+                result[1][0][0]="0";
+            }
+
+
+            if(trackers_result_number!=0){
+                rs = stmt.executeQuery(trackers_query);
+                rsmd = rs.getMetaData();
+                result[2] = new String[trackers_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<trackers_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[2][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[2] = new String[1][1];
+                result[2][0][0]="0";
+            }
+
+
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        }
+    }
+
+    public static String[][][] getTransactionsOfGroup(int groupId){
+        try {
+            ResultSet rs = null;
+            String stocks_query_test = "SELECT COUNT(transactionId) FROM GroupStocksTransaction NATURAL JOIN Stock WHERE groupId="+groupId+";";
+            String warrants_query_test = "SELECT COUNT(transactionId) FROM GroupWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE groupId="+groupId+";";
+            String trackers_query_test = "SELECT COUNT(transactionId) FROM GroupTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE groupId="+groupId+";";
+
+
+            String stocks_query = "SELECT SName,operation,operationPrice,underlyingPrice,quantity,transactionTime FROM GroupStocksTransaction NATURAL JOIN Stock WHERE groupId="+groupId+" ORDER BY(transactionTime)";
+
+            String warrants_query = "SELECT WName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM GroupWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE groupId="+groupId+" ORDER BY(transactionTime)";
+
+            String trackers_query = "SELECT TName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM GroupTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE groupId="+groupId+" ORDER BY(transactionTime)";
+
+            rs = stmt.executeQuery(stocks_query_test);
+            rs.first();
+            int stocks_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(warrants_query_test);
+            rs.first();
+            int warrants_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(trackers_query_test);
+            rs.first();
+            int trackers_result_number = rs.getInt(1);
+            rs.close();
+
+            if(stocks_result_number==0 && warrants_result_number==0 && trackers_result_number==0){
+                String[][][] result = new String[1][1][1];
+                result[0][0][0]="0";
+                return result;
+            }
+
+            String[][][] result = new String[3][][];
+            ResultSetMetaData rsmd;
+            rs = null;
+            if(stocks_result_number!=0){
+                rs = stmt.executeQuery(stocks_query);
+                rsmd = rs.getMetaData();
+                result[0] = new String[stocks_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<stocks_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[0][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[0] = new String[1][1];
+                result[0][0][0]="0";
+            }
+
+
+            if(warrants_result_number!=0){
+                rs = stmt.executeQuery(warrants_query);
+                rsmd = rs.getMetaData();
+                result[1] = new String[warrants_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<warrants_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[1][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[1] = new String[1][1];
+                result[1][0][0]="0";
+            }
+
+
+            if(trackers_result_number!=0){
+                rs = stmt.executeQuery(trackers_query);
+                rsmd = rs.getMetaData();
+                result[2] = new String[trackers_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<trackers_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[2][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[2] = new String[1][1];
+                result[2][0][0]="0";
+            }
+
+
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        }
+    }
+
+public static String[][][][] getTransactionsOfGroups(int clientId){
+        try {
+            ResultSet rs = null;
+            String stocks_query_test,warrants_query_test,trackers_query_test,stocks_query,warrants_query,trackers_query,group_member_query_test,group_member_query;
+            int stocks_result_number,warrants_result_number,trackers_result_number,group_number;
+            String[][][][] result;
+            ResultSetMetaData rsmd;
+
+
+            group_member_query_test = "SELECT COUNT(groupId) FROM GroupMember WHERE clientId="+clientId+";";
+            group_member_query = "SELECT groupId FROM GroupMember WHERE clientId="+clientId+";";
+            rs = stmt.executeQuery(group_member_query_test);
+            rs.first();
+            group_number = rs.getInt(1);
+            rs.close();
+            if(group_number==0){
+                result = new String[1][1][1][1];
+                result[0][0][0][0]="0";
+                return result;
+            }
+            rs = stmt.executeQuery(group_member_query);
+            rsmd = rs.getMetaData();
+            result = new String[group_number][][][];
+            rs.first();
+       for(int g=0;g<group_number;g++){
+
+            stocks_query_test = "SELECT COUNT(transactionId) FROM GroupStocksTransaction NATURAL JOIN Stock WHERE groupId="+rs.getInt(g+1)+";";
+            warrants_query_test = "SELECT COUNT(transactionId) FROM GroupWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE groupId="+rs.getInt(g+1)+";";
+            trackers_query_test = "SELECT COUNT(transactionId) FROM GroupTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE groupId="+rs.getInt(g+1)+";";
+
+
+            stocks_query = "SELECT SName,operation,operationPrice,underlyingPrice,quantity,transactionTime FROM GroupStocksTransaction NATURAL JOIN Stock WHERE groupId="+rs.getInt(g+1)+" ORDER BY(transactionTime)";
+
+            warrants_query = "SELECT WName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM GroupWarrantsTransaction NATURAL JOIN Warrant NATURAL JOIN Stock WHERE groupId="+rs.getInt(g+1)+" ORDER BY(transactionTime)";
+
+            trackers_query = "SELECT TName,SName,operation,operationPrice,optionPrice,underlyingPrice,quantity,transactionTime FROM GroupTrackersTransaction NATURAL JOIN Tracker NATURAL JOIN Stock WHERE groupId="+rs.getInt(g+1)+" ORDER BY(transactionTime)";
+
+            rs = stmt.executeQuery(stocks_query_test);
+            rs.first();
+            stocks_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(warrants_query_test);
+            rs.first();
+            warrants_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(trackers_query_test);
+            rs.first();
+            trackers_result_number = rs.getInt(1);
+            rs.close();
+
+            if(stocks_result_number==0 && warrants_result_number==0 && trackers_result_number==0){
+                result[g] = new String[1][1][1];
+                result[g][0][0][0]="0";
+            }
+       else {
+            result[g] = new String[3][][];
+            rs = null;
+            if(stocks_result_number!=0){
+                rs = stmt.executeQuery(stocks_query);
+                rsmd = rs.getMetaData();
+                result[g][0] = new String[stocks_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<stocks_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[g][0][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[g][0] = new String[1][1];
+                result[g][0][0][0]="0";
+            }
+
+
+            if(warrants_result_number!=0){
+                rs = stmt.executeQuery(warrants_query);
+                rsmd = rs.getMetaData();
+                result[g][1] = new String[warrants_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<warrants_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[g][1][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[g][1] = new String[1][1];
+                result[g][1][0][0]="0";
+            }
+
+
+            if(trackers_result_number!=0){
+                rs = stmt.executeQuery(trackers_query);
+                rsmd = rs.getMetaData();
+                result[g][2] = new String[trackers_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<trackers_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[g][2][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[g][2] = new String[1][1];
+                result[g][2][0][0]="0";
+            }
+        }
+    }
+    return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][][][] result = new String[1][1][1][1];
+            result[0][0][0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][][][] result = new String[1][1][1][1];
+            result[0][0][0][0]="-1";
+            return result;
+        }
+    }
+
+
+
+
+    public static String[][][] getPortfolioTransactionsOfClient(int clientId){
+        try {
+            ResultSet rs = null;
+            String stocks_query_test = "SELECT COUNT(transactionId) FROM ClientStock WHERE clientId="+clientId+";";
+            String warrants_query_test = "SELECT COUNT(transactionId) FROM ClientWarrant WHERE clientId="+clientId+";";
+            String trackers_query_test = "SELECT COUNT(transactionId) FROM ClientTracker WHERE clientId="+clientId+";";
+
+
+            String stocks_query = "SELECT operation,SName,quantity,operationPrice,underlyingPrice FROM ClientStock NATURAL JOIN Stock NATURAL JOIN ClientStocksTransaction WHERE clientId="+clientId+";";
+
+            String warrants_query = "SELECT operation,type,SName,W.quantity,buyingPrice,exercicePrice FROM ClientWarrantsTransaction W,ClientWarrant C,Stock S WHERE C.underlyingISIN=S.ISIN AND W.transactionId=C.transactionId AND C.clientId="+clientId+";";
+
+            String trackers_query = "SELECT operation,type,SName,T.quantity,buyingPrice,exercicePrice FROM ClientTrackersTransaction T,ClientTracker C,Stock S WHERE C.underlyingISIN=S.ISIN AND T.transactionId=C.transactionId AND C.clientId="+clientId+";";
+
+            rs = stmt.executeQuery(stocks_query_test);
+            rs.first();
+            int stocks_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(warrants_query_test);
+            rs.first();
+            int warrants_result_number = rs.getInt(1);
+            rs.close();
+
+            rs = stmt.executeQuery(trackers_query_test);
+            rs.first();
+            int trackers_result_number = rs.getInt(1);
+            rs.close();
+
+            if(stocks_result_number==0 && warrants_result_number==0 && trackers_result_number==0){
+                String[][][] result = new String[1][1][1];
+                result[0][0][0]="0";
+                return result;
+            }
+
+            String[][][] result = new String[3][][];
+            ResultSetMetaData rsmd;
+            rs = null;
+            if(stocks_result_number!=0){
+                rs = stmt.executeQuery(stocks_query);
+                rsmd = rs.getMetaData();
+                result[0] = new String[stocks_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<stocks_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[0][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[0] = new String[1][1];
+                result[0][0][0]="0";
+            }
+
+
+            if(warrants_result_number!=0){
+                rs = stmt.executeQuery(warrants_query);
+                rsmd = rs.getMetaData();
+                result[1] = new String[warrants_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<warrants_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[1][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[1] = new String[1][1];
+                result[1][0][0]="0";
+            }
+
+
+            if(trackers_result_number!=0){
+                rs = stmt.executeQuery(trackers_query);
+                rsmd = rs.getMetaData();
+                result[2] = new String[trackers_result_number][rsmd.getColumnCount()];
+                rs.first();
+                for(int i=0;i<trackers_result_number;i++){
+                    for(int j=0;j<rsmd.getColumnCount();j++){
+                        result[2][i][j]=rs.getString(j+1);
+                    }
+                    rs.next();
+                }
+                rs.close();
+            }
+            else {
+                result[2] = new String[1][1];
+                result[2][0][0]="0";
+            }
+
+
+            return result;
+        } catch(SQLException se){
+            System.out.println(se.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        } catch(Exception e){
+            System.out.println(e.getMessage());
+            String[][][] result = new String[1][1][1];
+            result[0][0][0]="-1";
+            return result;
+        }
+    }
+}

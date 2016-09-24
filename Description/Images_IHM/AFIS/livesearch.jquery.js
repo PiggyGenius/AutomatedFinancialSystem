@@ -1,0 +1,6 @@
+/*
+	cbs_live_search v0.8 for jQuery 1.2
+	(c) 2006-2008 Christophe Beyls <http://www.digitalia.be>
+	MIT-style licence
+*/
+var etc_live_search=(function(d){var f={};function e(v,s){var z=f[v];d(z.o).removeClass("ls_wait");if(!s&&z.a){z.a=0;d(z.h).hide(600)}}function k(v){var z=f[v];var s=d.trim(z.o.value);if(s!=z.q.q){if(z.b){z.b.abort()}if((z.q.q=s).length<3){e(v,0)}else{d(z.o).addClass("ls_wait");z.b=d.ajax(z.p.url+z.q.a+"q="+encodeURIComponent(z.q.q),d.extend(z.p,{data:z.q}))}}}return function(v,u,t){var z={};z.q=t;var w=d("#"+v).append(d([z.j=d("<div />").css({position:"absolute",visibility:"hidden"})[0],z.h=d("<div />").css({display:"none"})[0]]).addClass("ls_results"))[0];z.o=d("input",w).blur(function(){clearTimeout(f[v].m);k(v)}).bind("keyup paste",function(x){clearTimeout(f[v].m);if(x.keyCode==27){this.value="";k(v)}else{f[v].m=setTimeout(function(){k(v)},600)}})[0];z.p={url:w.action,type:"POST",dataType:"html",success:function(x){var z=f[v];d([z.j,z.h]).html((x=="<none />")?u:x);var s={width:z.j.clientWidth,height:z.j.clientHeight};if(!z.a){z.a=1;d(z.h).queue(function(){d(this).css(s).dequeue()}).show(600)}else{d(z.h).animate(s,600)}e(v,1);},error:function(){e(v,0)}};f[v]=z}})(jQuery);

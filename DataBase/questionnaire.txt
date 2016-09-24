@@ -1,0 +1,21 @@
+These are questions that will help to choose the investment strategy : 
+
+How much money do you want to have on this simulation ? float
+
+How much money should be invested at most ? float
+
+What is the value of everything you own ? float
+
+What is the net value of everything you own ? float
+
+How much debt do you have ? float
+
+How much of your income are you sure to earn every month (salary,pension,..) ? float
+
+For how long do you plan to not need the invested money ? float
+
+Do you plan to live off this software ? bool
+
+How much risk are you willing to take ? Would you take a 75/25 on a 1000 investment hoping to win 2000 ? bool
+
+Are you willing to make a very risky decision if the reward is very important ? bool
